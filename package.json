@@ -1,0 +1,19 @@
+{
+  "name": "SlackAdmin",
+  "version": "1.0.0",
+  "main": "src/index.ts",
+  "repository": "https://github.com/Archit404Error/SlackAdmin",
+  "author": "Archit404Error <4architmehta@gmail.com>",
+  "license": "MIT",
+  "dependencies": {
+    "@slack/bolt": "^3.13.3",
+    "dotenv": "^16.3.1",
+    "nodemon": "^3.0.1",
+    "ts-node": "^10.9.1",
+    "typescript": "^5.1.6"
+  },
+  "scripts": {
+    "start": "ts-node -r dotenv/config src/index.ts",
+    "dev": "nodemon -r dotenv/config src/index.ts"
+  }
+}
