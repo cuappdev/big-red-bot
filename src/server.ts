@@ -4,6 +4,7 @@ import * as FormController from "./forms/controllers";
 import { Form } from "./forms/models";
 import slackbot from "./slackbot";
 
+// server will be used for webhooks and admin dashboard
 const app = express();
 
 const sendFormDM = async (form: Form, userEmails: string[]) => {
