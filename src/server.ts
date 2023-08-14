@@ -1,11 +1,12 @@
 import express from "express";
 import { dbConnect } from "./database";
 import * as FormController from "./forms/controllers";
+import { Form } from "./forms/models";
 import slackbot from "./slackbot";
 
 const app = express();
 
-const sendFormDM = async (formTitle: string, userEmails: string[]) => {
+const sendFormDM = async (form: Form, userEmails: string[]) => {
   const userIdPromises = userEmails.map(async (email) => {
     const user = await slackbot.client.users.lookupByEmail({ email: email });
     if (!user.user) {
@@ -27,7 +28,7 @@ const sendFormDM = async (formTitle: string, userEmails: string[]) => {
 
   slackbot.client.chat.postMessage({
     channel: response.channel!.id!,
-    text: `This is your reminder to fill out the ${formTitle} form!`,
+    text: `Hey Everyone, this is your reminder to fill out the <${form.formURL}|${form.title}> form by tonight!`,
   });
 };
 
@@ -36,7 +37,7 @@ const sendFormReminders = async () => {
   const pendingMembersMap = await FormController.getPendingMembers().catch(
     (err) => {
       console.error(err);
-      return new Map<string, string[]>();
+      return new Map<Form, string[]>();
     }
   );
 

@@ -1,23 +1,23 @@
-import { REMIND_DAYS } from "../constants";
-import { computeDateAgeDays } from "../utils";
+import { isToday } from "../utils";
 import { initSheet } from "./formTracker";
-import { FormModel } from "./models";
+import { Form, FormModel } from "./models";
 
 const ingestForms = async () => {
   const formTracker = await initSheet();
-  const trackerSheet =
-    formTracker.sheetsByTitle[process.env.TRACKER_SHEET_NAME!];
+  const formInfoSheet =
+    formTracker.sheetsByTitle[process.env.FORM_INFO_SHEET_NAME!];
 
-  await trackerSheet.loadHeaderRow();
+  await formInfoSheet.loadHeaderRow();
+  const rows = await formInfoSheet.getRows();
 
-  // Start at index 2 to skip member name and emails
-  for (let i = 2; i < trackerSheet.headerValues.length; i++) {
-    const formTitle = trackerSheet.headerValues[i];
-    const form = await FormModel.findOne({ title: formTitle });
+  for (const row of rows) {
+    const form = await FormModel.findOne({ title: row.get("Name") });
     if (!form) {
       const newForm = new FormModel({
-        title: formTitle,
-        createdDate: new Date(),
+        title: row.get("Name"),
+        ingestedDate: new Date(),
+        dueDate: new Date(row.get("Due Date")),
+        formURL: row.get("Form URL"),
       });
       await newForm.save();
     }
@@ -28,7 +28,7 @@ const ingestForms = async () => {
  * Returns a map of form title member emails who have not completed the form
  */
 const getPendingMembers = async () => {
-  let pendingMembersMap = new Map<string, string[]>();
+  let pendingMembersMap = new Map<Form, string[]>();
   const formTracker = await initSheet();
   const trackerSheet =
     formTracker.sheetsByTitle[process.env.TRACKER_SHEET_NAME!];
@@ -37,15 +37,12 @@ const getPendingMembers = async () => {
   for (const form of await FormModel.find()) {
     let pendingMembers = [];
     for (const row of rows) {
-      if (
-        row.get(form.title) == "❌" &&
-        computeDateAgeDays(form.createdDate) > REMIND_DAYS
-      ) {
+      if (row.get(form.title) == "❌" && isToday(form.dueDate)) {
         pendingMembers.push(row.get("All Members"));
       }
     }
 
-    pendingMembersMap.set(form.title, pendingMembers);
+    pendingMembersMap.set(form, pendingMembers);
   }
 
   return pendingMembersMap;

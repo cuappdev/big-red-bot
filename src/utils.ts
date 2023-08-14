@@ -1,8 +1,12 @@
 /**
- * @param date date to compute age of
- * @return age of a date in days
+ * Checks whether a date is today
+ * @param date date to check
  */
-export const computeDateAgeDays = (date: Date) => {
-  const timeDiff = Math.abs(new Date().getTime() - date.getTime());
-  return Math.ceil(timeDiff / (1000 * 3600 * 24));
+export const isToday = (date: Date) => {
+  const today = new Date();
+  return (
+    date.getDate() == today.getDate() &&
+    date.getMonth() == today.getMonth() &&
+    date.getFullYear() == today.getFullYear()
+  );
 };

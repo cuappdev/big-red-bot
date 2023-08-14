@@ -1,16 +1,30 @@
 import { getModelForClass, prop } from "@typegoose/typegoose";
 
 class Form {
-  constructor(title: string, createdDate: Date) {
+  constructor(
+    title: string,
+    ingestedDate: Date,
+    dueDate: Date,
+    formURL: string
+  ) {
+    // invariant: title is unique
     this.title = title;
-    this.createdDate = createdDate;
+    this.ingestedDate = ingestedDate;
+    this.dueDate = dueDate;
+    this.formURL = formURL;
   }
 
   @prop()
   title: string;
 
   @prop()
-  createdDate: Date;
+  ingestedDate: Date;
+
+  @prop()
+  dueDate: Date;
+
+  @prop()
+  formURL: string;
 }
 
 const FormModel = getModelForClass(Form);
