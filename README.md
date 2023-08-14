@@ -10,4 +10,4 @@ Planned:
 - Sending PR review reminders
 
 ## Authors
-Big Red Bot is currently maintained by '23 team leads Archit Mehta (@Archit404Error) and Noah Solomon (@noah-solomon)
+Big Red Bot is currently maintained by '23 team leads [Archit Mehta](https://github.com/Archit404Error) and [Noah Solomon](https://github.com/noah-solomon)
