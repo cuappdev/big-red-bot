@@ -19,7 +19,7 @@
     "typescript": "^5.1.6"
   },
   "scripts": {
-    "start": "ts-node -r dotenv/config src/index.ts",
+    "start": "ts-node --transpile-only -r dotenv/config src/index.ts",
     "dev": "nodemon -r dotenv/config src/index.ts"
   }
 }
