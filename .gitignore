@@ -3,3 +3,4 @@
 node_modules/
 *.log
 service_account.json
+secrets/

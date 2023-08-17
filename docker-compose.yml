@@ -1,6 +1,6 @@
 services:
   web:
-    image: cuappdev/big-red-bot:${SLACK_BOT_IMG_TAG}
+    image: cornellappdev/big-red-bot:${SLACK_BOT_IMG_TAG}
     env_file: .env
     ports:
       - "3000:3000"
