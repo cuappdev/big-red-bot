@@ -44,4 +44,5 @@ jobs:
             docker rm big-red-bot-backend-web-1
             yes | sudo docker container prune
             yes | sudo docker system prune
+            cd slackbot
             docker compose -p big-red-bot-backend up -d
