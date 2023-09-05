@@ -19,16 +19,28 @@ const sendFormDM = async (form: Form, userEmails: string[]) => {
   let userIds = await Promise.all(userIdPromises);
   userIds = userIds.filter((id) => id != null);
 
-  const response = await slackbot.client.conversations.open({
-    users: userIds.join(","),
+  let channelTitle = form.title
+    .toLowerCase()
+    .replace(" ", "-")
+    .replace(/[.,\/#!$%\^&\*;:{}=`~()]/g, "");
+  channelTitle = `${channelTitle}-fa23-reminder`;
+  const response = await slackbot.client.conversations.create({
+    name: channelTitle,
+    is_private: true,
   });
 
   if (!response.ok) {
     throw new Error("Failed to open conversation");
   }
 
+  let channelId = response.channel!.id!;
+  await slackbot.client.conversations.invite({
+    channel: channelId,
+    users: userIds.join(","),
+  });
+
   slackbot.client.chat.postMessage({
-    channel: response.channel!.id!,
+    channel: channelId,
     text: `Hey Everyone, this is your reminder to fill out the <${form.formURL}|${form.title}> form by tonight!`,
   });
 };
