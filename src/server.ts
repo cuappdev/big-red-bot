@@ -26,7 +26,6 @@ const sendFormDM = async (form: Form, userEmails: string[]) => {
   channelTitle = `${channelTitle}-fa23-reminder`;
   const response = await slackbot.client.conversations.create({
     name: channelTitle,
-    is_private: true,
   });
 
   if (!response.ok) {
