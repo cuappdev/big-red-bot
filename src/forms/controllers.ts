@@ -1,3 +1,4 @@
+import moment from "moment-timezone";
 import { isToday } from "../utils";
 import { initSheet } from "./formTracker";
 import { Form, FormModel } from "./models";
@@ -15,8 +16,10 @@ const ingestForms = async () => {
     if (!form) {
       const newForm = new FormModel({
         title: row.get("Name"),
-        ingestedDate: new Date(),
-        dueDate: new Date(row.get("Due Date")),
+        ingestedDate: moment().tz("America/New_York").toDate(),
+        dueDate: moment
+          .tz(row.get("Due Date"), "MM/DD/YYYY", "America/New_York")
+          .toDate(),
         formURL: row.get("Form URL"),
       });
       await newForm.save();
