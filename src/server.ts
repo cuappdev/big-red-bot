@@ -56,7 +56,7 @@ const sendFormReminders = async () => {
   for (const [formTitle, userEmails] of pendingMembersMap.entries()) {
     if (userEmails.length == 0) continue; // Skip if no pending members for this form
 
-    await sendFormDM(formTitle, userEmails);
+    await sendFormDM(formTitle, userEmails).catch((err) => console.log(err));
   }
 };
 
