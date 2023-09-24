@@ -48,7 +48,7 @@ const sendFormReminders = async () => {
   await FormController.ingestForms();
   const pendingMembersMap = await FormController.getPendingMembers().catch(
     (err) => {
-      console.error(err);
+      console.log(`Error while getting pending members: ${err}`);
       return new Map<Form, string[]>();
     }
   );
@@ -56,7 +56,9 @@ const sendFormReminders = async () => {
   for (const [formTitle, userEmails] of pendingMembersMap.entries()) {
     if (userEmails.length == 0) continue; // Skip if no pending members for this form
 
-    await sendFormDM(formTitle, userEmails).catch((err) => console.log(err));
+    await sendFormDM(formTitle, userEmails).catch((err) =>
+      console.log(`Error while sending DMs: ${err}`)
+    );
   }
 };
 
