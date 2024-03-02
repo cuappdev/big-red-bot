@@ -1,5 +1,5 @@
 import moment from "moment-timezone";
-import { isToday } from "../utils";
+import { getStartOfToday, isToday } from "../utils";
 import { initSheet } from "./formTracker";
 import { Form, FormModel } from "./models";
 
@@ -37,7 +37,7 @@ const getPendingMembers = async () => {
     formTracker.sheetsByTitle[process.env.TRACKER_SHEET_NAME!];
   const rows = await trackerSheet.getRows();
 
-  for (const form of await FormModel.find()) {
+  for (const form of await FormModel.find().gte("dueDate", getStartOfToday())) {
     let pendingMembers = [];
     for (const row of rows) {
       if (row.get(form.title) == "❌" && isToday(form.dueDate)) {

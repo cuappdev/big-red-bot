@@ -12,3 +12,9 @@ export const isToday = (date: Date) => {
     date.getFullYear() == today.getFullYear()
   );
 };
+
+/**
+ * Returns the start of the day (12am EST today) in UTC time
+ */
+export const getStartOfToday = () =>
+  moment().tz("America/New_York").startOf("day").toDate();

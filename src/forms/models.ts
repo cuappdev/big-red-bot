@@ -1,5 +1,6 @@
-import { getModelForClass, prop } from "@typegoose/typegoose";
+import { getModelForClass, index, prop } from "@typegoose/typegoose";
 
+@index({ title: "text" })
 class Form {
   constructor(
     title: string,
