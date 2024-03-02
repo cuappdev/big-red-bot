@@ -7,3 +7,4 @@ services:
       - "8000:8000"
     volumes:
       - ./service_account.json:/usr/app/service_account.json 
+    restart: on-failure
