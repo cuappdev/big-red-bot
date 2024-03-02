@@ -41,7 +41,7 @@ const sendFormDM = async (form: Form, userEmails: string[]) => {
 
   slackbot.client.chat.postMessage({
     channel: channelId,
-    text: `Hey Everyone, this is your reminder to fill out the <${form.formURL}|${form.title}> form by tonight!`,
+    text: `Hey <!channel>, this is your reminder to fill out the <${form.formURL}|${form.title}> form by tonight!`,
   });
 };
 
