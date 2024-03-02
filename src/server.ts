@@ -23,7 +23,8 @@ const sendFormDM = async (form: Form, userEmails: string[]) => {
     .toLowerCase()
     .replace(" ", "-")
     .replace(/[.,\/#!$%\^&\*;:{}=`~()]/g, "");
-  channelTitle = `${channelTitle}-fa23-reminder`;
+  channelTitle = `${channelTitle}-reminder`;
+  console.log(`Attempting to create channel ${channelTitle}`);
   const response = await slackbot.client.conversations.create({
     name: channelTitle,
   });
