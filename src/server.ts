@@ -21,8 +21,8 @@ const sendFormDM = async (form: Form, userEmails: string[]) => {
 
   let channelTitle = form.title
     .toLowerCase()
-    .replace(" ", "-")
-    .replace(/[.,\/#!$%\^&\*;:{}=`~()]/g, "");
+    .replaceAll(" ", "-")
+    .replaceAll(/[.,\/#!$%\^&\*;:{}=`~()]/g, "");
   channelTitle = `${channelTitle}-reminder`;
   console.log(`Attempting to create channel ${channelTitle}`);
   const response = await slackbot.client.conversations.create({
