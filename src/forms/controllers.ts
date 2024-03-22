@@ -18,10 +18,13 @@ const ingestForms = async () => {
   const rows = await formInfoSheet.getRows();
 
   for (const row of rows) {
-    const form = await FormModel.findOne({ title: row.get("Name") });
+    const formTitle = `${row.get("Name")} ${SEMESTER}`;
+    const form = await FormModel.findOne({
+      title: formTitle,
+    });
     if (!form) {
       const newForm = new FormModel({
-        title: `${row.get("Name")} ${SEMESTER}`,
+        title: formTitle,
         ingestedDate: moment().tz("America/New_York").toDate(),
         dueDate: moment
           .tz(row.get("Due Date"), "MM/DD/YYYY", "America/New_York")
@@ -47,12 +50,14 @@ const getPendingMembers = async () => {
     "dueDate",
     getStartOfToday()
   );
+
   logWithTime(
     `Upcoming Forms: ${upcomingForms.map(
       (upcomingForm) =>
         `${upcomingForm.title} is due ${dateToESTString(upcomingForm.dueDate)}`
     )}`
   );
+
   for (const form of upcomingForms) {
     let pendingMembers = [];
     for (const row of rows) {
