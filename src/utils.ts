@@ -5,11 +5,12 @@ import moment from "moment-timezone";
  * @param date date to check
  */
 export const isToday = (date: Date) => {
-  const today = moment().tz("America/New_York").toDate();
+  const parseDate = moment.utc(date).tz("America/New_York");
+  const today = moment().tz("America/New_York");
   return (
-    date.getDate() == today.getDate() &&
-    date.getMonth() == today.getMonth() &&
-    date.getFullYear() == today.getFullYear()
+    parseDate.date() == today.date() &&
+    parseDate.month() == today.month() &&
+    parseDate.year() == today.year()
   );
 };
 
@@ -24,10 +25,16 @@ export const getStartOfToday = () =>
  * @param logData data to log
  */
 export const logWithTime = (logData: string) => {
-  const runDate = moment().tz("America/New_York").toDate();
-  console.log(
-    `${
-      runDate.getMonth() + 1
-    }/${runDate.getDate()}/${runDate.getFullYear()} ${runDate.getHours()}:${runDate.getMinutes()} EST: ${logData}`
-  );
+  console.log(`${dateToESTString(new Date())}: ${logData}`);
+};
+
+/**
+ * @param date Datetime object to convert to EST time string
+ * @returns An EST string representation of the provide Datetime object
+ */
+export const dateToESTString = (date: Date) => {
+  const momentDate = moment(date).tz("America/New_York");
+  return `${
+    momentDate.month() + 1
+  }/${momentDate.date()}/${momentDate.year()} ${momentDate.hour()}:${momentDate.minute()} EST`;
 };
