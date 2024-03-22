@@ -1,7 +1,7 @@
 import { JWT } from "google-auth-library";
 import { GoogleSpreadsheet } from "google-spreadsheet";
-import moment from "moment-timezone";
 import serviceAccount from "../../service_account.json";
+import { logWithTime } from "../utils";
 
 const serviceAccountAuth = new JWT({
   email: serviceAccount.client_email,
@@ -20,9 +20,6 @@ const formTrackerSheet = new GoogleSpreadsheet(
  */
 export const initSheet = async (): Promise<GoogleSpreadsheet> => {
   await formTrackerSheet.loadInfo();
-  const runDate = moment().tz("America/New_York").toDate();
-  console.log(
-    `${runDate.getMonth()}/${runDate.getDay()}/${runDate.getFullYear()} ${runDate.getHours()}:${runDate.getMinutes()} ✅ Loaded form tracker sheet`
-  );
+  logWithTime("✅ Loaded form tracker sheet");
   return formTrackerSheet;
 };

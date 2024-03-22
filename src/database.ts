@@ -1,4 +1,5 @@
 import mongoose, { ConnectOptions } from "mongoose";
+import { logWithTime } from "./utils";
 
 export const dbConnect = async () => {
   const uri =
@@ -9,10 +10,10 @@ export const dbConnect = async () => {
     useNewUrlParser: true,
     useUnifiedTopology: true,
   } as ConnectOptions);
-  console.log("✅ Connected to MongoDB");
+  logWithTime("✅ Connected to MongoDB");
 };
 
 export const dbDisconnect = async () => {
   await mongoose.disconnect();
-  console.log("✅ Disconnected from MongoDB");
+  logWithTime("✅ Disconnected from MongoDB");
 };

@@ -1,6 +1,6 @@
 import moment from "moment-timezone";
 import { SEMESTER } from "../constants";
-import { getStartOfToday, isToday } from "../utils";
+import { getStartOfToday, isToday, logWithTime } from "../utils";
 import { initSheet } from "./formTracker";
 import { Form, FormModel } from "./models";
 
@@ -42,7 +42,7 @@ const getPendingMembers = async () => {
     "dueDate",
     getStartOfToday()
   );
-  console.log(
+  logWithTime(
     `Upcoming Forms: ${upcomingForms.map((upcomingForm) => upcomingForm.title)}`
   );
   for (const form of upcomingForms) {

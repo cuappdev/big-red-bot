@@ -3,6 +3,7 @@ import { dbConnect } from "./database";
 import * as FormController from "./forms/controllers";
 import { Form } from "./forms/models";
 import slackbot from "./slackbot";
+import { logWithTime } from "./utils";
 
 // server will be used for webhooks and admin dashboard
 const app = express();
@@ -24,7 +25,7 @@ const sendFormDM = async (form: Form, userEmails: string[]) => {
     .replaceAll(" ", "-")
     .replaceAll(/[.,\/#!$%\^&\*;:{}=`~()]/g, "");
   channelTitle = `${channelTitle}-reminder`;
-  console.log(`Attempting to create channel ${channelTitle}`);
+  logWithTime(`Attempting to create channel ${channelTitle}`);
   const response = await slackbot.client.conversations.create({
     name: channelTitle,
   });
@@ -49,7 +50,7 @@ const sendFormReminders = async () => {
   await FormController.ingestForms();
   const pendingMembersMap = await FormController.getPendingMembers().catch(
     (err) => {
-      console.log(`Error while getting pending members: ${err}`);
+      logWithTime(`Error while getting pending members: ${err}`);
       return new Map<Form, string[]>();
     }
   );
@@ -58,7 +59,7 @@ const sendFormReminders = async () => {
     if (userEmails.length == 0) continue; // Skip if no pending members for this form
 
     await sendFormDM(formTitle, userEmails).catch((err) =>
-      console.log(`Error while sending DMs: ${err}`)
+      logWithTime(`Error while sending DMs: ${err}`)
     );
   }
 };
@@ -66,10 +67,10 @@ const sendFormReminders = async () => {
 export const startServer = async () => {
   await dbConnect();
   await slackbot.start(process.env.PORT || 3000);
-  console.log("✅ Slackbot up and running!");
+  logWithTime("✅ Slackbot up and running!");
 
   app.listen(process.env.PORT || 8000);
-  console.log("✅ Express server up and running!");
+  logWithTime("✅ Express server up and running!");
 
   await sendFormReminders();
   setInterval(sendFormReminders, 1000 * 60 * 60 * 24); // Run every 24 hours

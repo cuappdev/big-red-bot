@@ -18,3 +18,16 @@ export const isToday = (date: Date) => {
  */
 export const getStartOfToday = () =>
   moment().tz("America/New_York").startOf("day").toDate();
+
+/**
+ * A console.log wrapper which logs the current EST time to stdout
+ * @param logData data to log
+ */
+export const logWithTime = (logData: string) => {
+  const runDate = moment().tz("America/New_York").toDate();
+  console.log(
+    `${
+      runDate.getMonth() + 1
+    }/${runDate.getDate()}/${runDate.getFullYear()} ${runDate.getHours()}:${runDate.getMinutes()} EST: ${logData}`
+  );
+};
