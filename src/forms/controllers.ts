@@ -46,19 +46,18 @@ const getPendingMembers = async () => {
     formTracker.sheetsByTitle[process.env.TRACKER_SHEET_NAME!];
   const rows = await trackerSheet.getRows();
 
-  const upcomingForms = await FormModel.find().gte(
-    "dueDate",
-    getStartOfToday()
-  );
+  const dueForms = (
+    await FormModel.find().gte("dueDate", getStartOfToday())
+  ).filter((form) => isToday(form.dueDate));
 
   logWithTime(
-    `Upcoming Forms: ${upcomingForms.map(
-      (upcomingForm) =>
-        `${upcomingForm.title} is due ${dateToESTString(upcomingForm.dueDate)}`
+    `Due Forms: ${dueForms.map(
+      (dueForm) =>
+        `${dueForm.title} is due Today (${dateToESTString(dueForm.dueDate)})`
     )}`
   );
 
-  for (const form of upcomingForms) {
+  for (const form of dueForms) {
     let pendingMembers = [];
     for (const row of rows) {
       if (row.get(form.title) == "❌" && isToday(form.dueDate)) {
