@@ -10,4 +10,4 @@ Planned:
 - Sending PR review reminders
 
 ## Authors
-Big Red Bot is currently maintained by '23 team leads [Archit Mehta](https://github.com/Archit404Error) and [Noah Solomon](https://github.com/noah-solomon)
+This slack bot was authored by [Archit Mehta](https://github.com/Archit404Error), Team Lead '24 
