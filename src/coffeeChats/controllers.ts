@@ -178,28 +178,34 @@ const createPairings = (
 };
 
 /**
- * Sends DMs to paired users
+ * Creates a group DM and notifies paired users
  */
 const notifyPairing = async (userIds: string[]): Promise<void> => {
   const userMentions = userIds.map((id) => `<@${id}>`).join(", ");
   const activity = getRandomActivity();
 
-  for (const userId of userIds) {
-    try {
-      const result = await slackbot.client.chat.postMessage({
-        channel: userId,
-        text: `Hey! You've been paired for a coffee chat with ${userMentions.replace(
-          `<@${userId}>`,
-          "your partner(s)",
-        )}. ☕\n\nSuggested activity: *${activity}*\n\nTake some time in the next two weeks to connect and get to know each other better!`,
-      });
+  try {
+    // Create a group DM with all users in the pairing
+    const conversation = await slackbot.client.conversations.open({
+      users: userIds.join(","),
+    });
 
-      if (!result.ok) {
-        logWithTime(`Failed to send DM to user ${userId}`);
-      }
-    } catch (error) {
-      logWithTime(`Error sending DM to user ${userId}: ${error}`);
+    if (!conversation.ok || !conversation.channel) {
+      logWithTime(`Failed to create group DM for users: ${userIds.join(", ")}`);
+      return;
     }
+
+    // Send a message to the group DM
+    const messageResult = await slackbot.client.chat.postMessage({
+      channel: conversation.channel.id!,
+      text: `Hey ${userMentions}! You've been paired for a coffee chat. ☕\n\nSuggested activity: *${activity}*\n\nTake some time in the next two weeks to connect and get to know each other better!`,
+    });
+
+    if (!messageResult.ok) {
+      logWithTime(`Failed to send message to group DM: ${conversation.channel.id}`);
+    }
+  } catch (error) {
+    logWithTime(`Error creating group DM for users ${userIds.join(", ")}: ${error}`);
   }
 };
 
