@@ -9,56 +9,56 @@ import {
 } from "./models";
 
 const COFFEE_CHAT_ACTIVITIES = [
-  "grab coffee at a local café",
-  "get lunch together",
-  "take a walk around campus",
-  "play a board game",
-  "work together at a coffee shop",
-  "grab bubble tea",
-  "check out a new restaurant",
-  "visit a local museum or gallery",
-  "play video games together",
-  "go for a quick hike",
-  "grab ice cream",
-  "cook a meal together",
-  "attend a campus event",
-  "play pool or ping pong",
-  "do a workout or go to the gym together",
-  "visit a bookstore",
-  "try a new food spot",
-  "have a video call chat",
-  "collaborate on a side project",
-  "attend a workshop or talk together",
-  "get breakfast or brunch",
-  "go rock climbing",
-  "visit a farmers market",
-  "play mini golf",
-  "watch a movie together",
-  "go bowling",
-  "visit a cat café",
-  "try an escape room",
-  "go to a comedy show",
-  "take a photography walk",
-  "visit an arcade",
-  "go thrifting or vintage shopping",
-  "attend a concert or live music event",
-  "play frisbee or catch",
-  "visit a botanical garden",
-  "go stargazing",
-  "try a painting or pottery class",
-  "explore a new neighborhood",
-  "visit a library or study lounge",
-  "go for a bike ride",
-  "try a new coffee brewing method together",
-  "attend a trivia night",
-  "visit a local bakery",
-  "play cards or a deck game",
-  "go to a sports game",
-  "try a cooking class",
-  "visit a rooftop or scenic viewpoint",
-  "go kayaking or paddle boarding",
-  "attend a meditation or yoga session",
-  "explore local street art or murals",
+  "Grab coffee at a local café ☕",
+  "Get lunch together 🍽️",
+  "Take a walk around campus 🚶",
+  "Play a board game 🎲",
+  "Work together at a coffee shop 💻",
+  "Grab bubble tea 🧋",
+  "Check out a new restaurant 🍴",
+  "Visit a local museum or gallery 🖼️",
+  "Play video games together 🎮",
+  "Go for a quick hike 🥾",
+  "Grab ice cream 🍦",
+  "Cook a meal together 👨‍🍳",
+  "Attend a campus event 🎪",
+  "Play pool or ping pong 🎱",
+  "Do a workout or go to the gym together 💪",
+  "Visit a bookstore 📚",
+  "Try a new food spot 🍕",
+  "Have a video call chat 📹",
+  "Collaborate on a side project 🛠️",
+  "Attend a workshop or talk together 🎤",
+  "Get breakfast or brunch 🥞",
+  "Go rock climbing 🧗",
+  "Visit a farmers market 🥕",
+  "Play mini golf ⛳",
+  "Watch a movie together 🎬",
+  "Go bowling 🎳",
+  "Visit a cat café 🐱",
+  "Try an escape room 🔐",
+  "Go to a comedy show 😂",
+  "Take a photography walk 📸",
+  "Visit an arcade 🕹️",
+  "Go thrifting or vintage shopping 👗",
+  "Attend a concert or live music event 🎵",
+  "Play frisbee or catch 🥏",
+  "Visit a botanical garden 🌺",
+  "Go stargazing 🌟",
+  "Try a painting or pottery class 🎨",
+  "Explore a new neighborhood 🗺️",
+  "Visit a library or study lounge 📖",
+  "Go for a bike ride 🚴",
+  "Try a new coffee brewing method together ☕",
+  "Attend a trivia night 🧠",
+  "Visit a local bakery 🥐",
+  "Play cards or a deck game 🃏",
+  "Go to a sports game 🏀",
+  "Try a cooking class 🍳",
+  "Visit a rooftop or scenic viewpoint 🌆",
+  "Go kayaking or paddle boarding 🛶",
+  "Attend a meditation or yoga session 🧘",
+  "Explore local street art or murals 🎨",
 ];
 
 /**
@@ -210,6 +210,9 @@ const notifyPairing = async (
       return null;
     }
 
+    // Calculate deadline (2 weeks from now)
+    const deadline = moment().tz("America/New_York").add(2, "weeks");
+
     // Send a message to the group DM with interactive buttons
     const messageResult = await slackbot.client.chat.postMessage({
       channel: conversation.channel.id!,
@@ -219,21 +222,28 @@ const notifyPairing = async (
           type: "section",
           text: {
             type: "mrkdwn",
-            text: `Hey ${userMentions}! You've been paired for a coffee chat. ☕`,
+            text: `:tada: Hey ${userMentions}! You've been paired for a coffee chat. ☕`,
           },
         },
         {
           type: "section",
           text: {
             type: "mrkdwn",
-            text: `*Suggested activity:* ${activity}\n\nTake some time in the next two weeks to connect and get to know each other better!`,
+            text: `:bulb: *Suggested activity:* ${activity}\n\nTake some time over the next two weeks to connect and get to know each other better!`,
           },
         },
         {
           type: "section",
           text: {
             type: "mrkdwn",
-            text: `📸 *Don't forget to snap some photos!* Share them here in this chat — we'll post a collection in the channel after two weeks to celebrate your meetup!`,
+            text: `:calendar: *Meet by:* ${deadline.format("dddd, MMMM Do")}`,
+          },
+        },
+        {
+          type: "section",
+          text: {
+            type: "mrkdwn",
+            text: `:camera_with_flash: *Don't forget to snap some photos!* Share them here in this chat — we'll post a collection in the channel after two weeks to celebrate your meetup!`,
           },
         },
         {
@@ -279,6 +289,18 @@ export const processCoffeeChatChannel = async (
   try {
     logWithTime(`Processing coffee chats for channel ${config.channelName}`);
 
+    // Expire all previous active pairings for this channel
+    const expireResult = await CoffeeChatPairingModel.updateMany(
+      { channelId: config.channelId, isActive: true },
+      { isActive: false },
+    );
+
+    if (expireResult.modifiedCount > 0) {
+      logWithTime(
+        `Expired ${expireResult.modifiedCount} previous pairing(s) for ${config.channelName}`,
+      );
+    }
+
     // Get all channel members
     const members = await getChannelMembers(config.channelId);
 
@@ -313,6 +335,7 @@ export const processCoffeeChatChannel = async (
         createdAt: now,
         notifiedAt: now,
         conversationId: conversationId || undefined,
+        isActive: true,
         reminderSent: false,
         photosPosted: false,
       });
@@ -325,6 +348,39 @@ export const processCoffeeChatChannel = async (
       { channelId: config.channelId },
       { lastPairingDate: now },
     );
+
+    // Send announcement to the channel
+    const nextPairingDate = moment()
+      .tz("America/New_York")
+      .add(2, "weeks");
+    
+    await slackbot.client.chat.postMessage({
+      channel: config.channelId,
+      text: "Coffee chat pairings have been created!",
+      blocks: [
+        {
+          type: "section",
+          text: {
+            type: "mrkdwn",
+            text: `:tada: Hooray! I just created ${pairings.length} coffee chat pairing${pairings.length !== 1 ? "s" : ""} a few moments ago.`,
+          },
+        },
+        {
+          type: "section",
+          text: {
+            type: "mrkdwn",
+            text: `:coffee: Have fun meeting with your coffee chat partner${pairings.length > 1 ? "s" : ""} :slightly_smiling_face:`,
+          },
+        },
+        {
+          type: "section",
+          text: {
+            type: "mrkdwn",
+            text: `:calendar: Your next scheduled pairing is on ${nextPairingDate.format("dddd (MMM Do)")} at ${nextPairingDate.format("h:mm A z")}`,
+          },
+        },
+      ],
+    });
 
     logWithTime(`✅ Completed coffee chat pairings for ${config.channelName}`);
   } catch (error) {

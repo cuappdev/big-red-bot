@@ -133,9 +133,7 @@ slackbot.command("/trigger-coffee-chats", async ({ command, ack, say }) => {
       return;
     }
 
-    await say(`☕ Generating coffee chat pairings...`);
     await processCoffeeChatChannel(config);
-    await say(`✅ Coffee chat pairings have been sent via DM!`);
   } catch (error) {
     await say(`❌ Error triggering coffee chats: ${error}`);
   }

@@ -16,6 +16,9 @@ class CoffeeChatPairing {
   @prop()
   conversationId?: string;
 
+  @prop({ default: true })
+  isActive!: boolean;
+
   @prop({ default: false })
   reminderSent!: boolean;
 
