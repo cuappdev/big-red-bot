@@ -4,6 +4,7 @@ import * as FormController from "./forms/controllers";
 import { Form } from "./forms/models";
 import slackbot from "./slackbot";
 import { logWithTime } from "./utils";
+import { processAllCoffeeChats } from "./coffeeChats/controllers";
 
 // server will be used for webhooks and admin dashboard
 const app = express();
@@ -52,14 +53,14 @@ const sendFormReminders = async () => {
     (err) => {
       logWithTime(`Error while getting pending members: ${err}`);
       return new Map<Form, string[]>();
-    }
+    },
   );
 
   for (const [formTitle, userEmails] of pendingMembersMap.entries()) {
     if (userEmails.length == 0) continue; // Skip if no pending members for this form
 
     await sendFormDM(formTitle, userEmails).catch((err) =>
-      logWithTime(`Error while sending DMs: ${err}`)
+      logWithTime(`Error while sending DMs: ${err}`),
     );
   }
 };
@@ -74,4 +75,8 @@ export const startServer = async () => {
 
   await sendFormReminders();
   setInterval(sendFormReminders, 1000 * 60 * 60 * 24); // Run every 24 hours
+
+  // Coffee chat pairings - run biweekly (every 14 days)
+  await processAllCoffeeChats();
+  setInterval(processAllCoffeeChats, 1000 * 60 * 60 * 24 * 14); // Run every 14 days
 };

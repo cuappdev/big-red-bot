@@ -6,10 +6,7 @@ export const dbConnect = async () => {
     process.env.NODE_ENV == "dev" || process.env.NODE_ENV == "test"
       ? process.env.DEV_URI
       : process.env.PROD_URI;
-  await mongoose.connect(uri!, {
-    useNewUrlParser: true,
-    useUnifiedTopology: true,
-  } as ConnectOptions);
+  await mongoose.connect(uri!);
   logWithTime("✅ Connected to MongoDB");
 };
 

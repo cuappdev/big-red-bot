@@ -6,5 +6,5 @@ services:
       - "3000:3000"
       - "8000:8000"
     volumes:
-      - ./service_account.json:/usr/app/service_account.json 
+      - ./service_account.json:/usr/app/service_account.json:ro
     restart: on-failure

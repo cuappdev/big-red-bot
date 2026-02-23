@@ -1,13 +1,12 @@
-FROM node:16
+FROM node:24:13.1
 
 RUN mkdir /usr/app
 WORKDIR /usr/app
 
-# Copy these files first to optimize cache
 COPY package.json .
-COPY yarn.lock .
+COPY package-lock.json .
 
-RUN yarn install
+RUN npm ci
 COPY . .
 EXPOSE 3000 8000
-CMD ["yarn", "start"]
+CMD ["npm", "start"]
