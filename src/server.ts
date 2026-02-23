@@ -4,7 +4,12 @@ import * as FormController from "./forms/controllers";
 import { Form } from "./forms/models";
 import slackbot from "./slackbot";
 import { logWithTime } from "./utils";
-import { processAllCoffeeChats } from "./coffeeChats/controllers";
+import {
+  processAllCoffeeChats,
+  processCompletedPairings,
+  reportBiweeklyStats,
+  sendMidwayReminders,
+} from "./coffeeChats/controllers";
 
 // server will be used for webhooks and admin dashboard
 const app = express();
@@ -79,4 +84,16 @@ export const startServer = async () => {
   // Coffee chat pairings - run biweekly (every 14 days)
   await processAllCoffeeChats();
   setInterval(processAllCoffeeChats, 1000 * 60 * 60 * 24 * 14); // Run every 14 days
+
+  // Process completed coffee chat pairings - run daily to collect and post photos
+  await processCompletedPairings();
+  setInterval(processCompletedPairings, 1000 * 60 * 60 * 24); // Run every 24 hours
+
+  // Send midway reminders for coffee chats - run daily to catch 1-week pairings
+  await sendMidwayReminders();
+  setInterval(sendMidwayReminders, 1000 * 60 * 60 * 24); // Run every 24 hours
+
+  // Report biweekly coffee chat statistics - run every 14 days
+  await reportBiweeklyStats();
+  setInterval(reportBiweeklyStats, 1000 * 60 * 60 * 24 * 14); // Run every 14 days
 };

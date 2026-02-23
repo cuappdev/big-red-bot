@@ -12,6 +12,15 @@ class CoffeeChatPairing {
 
   @prop()
   notifiedAt?: Date;
+
+  @prop()
+  conversationId?: string;
+
+  @prop({ default: false })
+  reminderSent!: boolean;
+
+  @prop({ default: false })
+  photosPosted!: boolean;
 }
 
 class CoffeeChatConfig {
