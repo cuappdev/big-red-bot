@@ -5,6 +5,7 @@ import {
   CoffeeChatConfig,
   CoffeeChatConfigModel,
   CoffeeChatPairingModel,
+  CoffeeChatUserPreferenceModel,
 } from "./models";
 
 const COFFEE_CHAT_ACTIVITIES = [
@@ -81,7 +82,7 @@ const getRandomActivity = (): string => {
 };
 
 /**
- * Gets all members from a Slack channel (excluding bots)
+ * Gets all members from a Slack channel (excluding bots and opted-out users)
  */
 const getChannelMembers = async (channelId: string): Promise<string[]> => {
   const result = await slackbot.client.conversations.members({
@@ -103,7 +104,18 @@ const getChannelMembers = async (channelId: string): Promise<string[]> => {
     }),
   );
 
-  return memberDetails.filter((m) => !m.isBot).map((m) => m.id);
+  const nonBotMembers = memberDetails.filter((m) => !m.isBot).map((m) => m.id);
+
+  // Filter out opted-out users
+  const preferences = await CoffeeChatUserPreferenceModel.find({
+    channelId,
+    userId: { $in: nonBotMembers },
+    isOptedIn: false,
+  });
+
+  const optedOutUserIds = new Set(preferences.map((p) => p.userId));
+
+  return nonBotMembers.filter((userId) => !optedOutUserIds.has(userId));
 };
 
 /**
@@ -180,7 +192,10 @@ const createPairings = (
 /**
  * Creates a group DM and notifies paired users
  */
-const notifyPairing = async (userIds: string[]): Promise<void> => {
+const notifyPairing = async (
+  userIds: string[],
+  channelId: string,
+): Promise<void> => {
   const userMentions = userIds.map((id) => `<@${id}>`).join(", ");
   const activity = getRandomActivity();
 
@@ -195,10 +210,41 @@ const notifyPairing = async (userIds: string[]): Promise<void> => {
       return;
     }
 
-    // Send a message to the group DM
+    // Send a message to the group DM with interactive buttons
     const messageResult = await slackbot.client.chat.postMessage({
       channel: conversation.channel.id!,
-      text: `Hey ${userMentions}! You've been paired for a coffee chat. ☕\n\nSuggested activity: *${activity}*\n\nTake some time in the next two weeks to connect and get to know each other better!`,
+      text: `Hey ${userMentions}! You've been paired for a coffee chat. ☕`,
+      blocks: [
+        {
+          type: "section",
+          text: {
+            type: "mrkdwn",
+            text: `Hey ${userMentions}! You've been paired for a coffee chat. ☕`,
+          },
+        },
+        {
+          type: "section",
+          text: {
+            type: "mrkdwn",
+            text: `*Suggested activity:* ${activity}\n\nTake some time in the next two weeks to connect and get to know each other better!`,
+          },
+        },
+        {
+          type: "actions",
+          elements: [
+            {
+              type: "button",
+              text: {
+                type: "plain_text",
+                text: "⏸️ Pause Future Pairings",
+              },
+              style: "danger",
+              action_id: "coffee_chat_opt_out",
+              value: channelId,
+            },
+          ],
+        },
+      ],
     });
 
     if (!messageResult.ok) {
@@ -252,7 +298,7 @@ export const processCoffeeChatChannel = async (
       await pairingDoc.save();
 
       // Notify users
-      await notifyPairing(pairing);
+      await notifyPairing(pairing, config.channelId);
     }
 
     // Update last pairing date
@@ -308,4 +354,56 @@ export const registerCoffeeChatChannel = async (
 
   await config.save();
   logWithTime(`✅ Registered ${channelName} for coffee chat pairings`);
+};
+
+/**
+ * Opts a user out of coffee chats for a specific channel
+ */
+export const optOutOfCoffeeChats = async (
+  userId: string,
+  channelId: string,
+): Promise<void> => {
+  const now = moment().tz("America/New_York").toDate();
+
+  await CoffeeChatUserPreferenceModel.findOneAndUpdate(
+    { userId, channelId },
+    { isOptedIn: false, updatedAt: now },
+    { upsert: true, new: true },
+  );
+
+  logWithTime(`User ${userId} opted out of coffee chats in channel ${channelId}`);
+};
+
+/**
+ * Opts a user back into coffee chats for a specific channel
+ */
+export const optInToCoffeeChats = async (
+  userId: string,
+  channelId: string,
+): Promise<void> => {
+  const now = moment().tz("America/New_York").toDate();
+
+  await CoffeeChatUserPreferenceModel.findOneAndUpdate(
+    { userId, channelId },
+    { isOptedIn: true, updatedAt: now },
+    { upsert: true, new: true },
+  );
+
+  logWithTime(`User ${userId} opted into coffee chats in channel ${channelId}`);
+};
+
+/**
+ * Gets the opt-in status for a user in a channel
+ */
+export const getCoffeeChatsOptInStatus = async (
+  userId: string,
+  channelId: string,
+): Promise<boolean> => {
+  const preference = await CoffeeChatUserPreferenceModel.findOne({
+    userId,
+    channelId,
+  });
+
+  // Default to opted in if no preference exists
+  return preference?.isOptedIn ?? true;
 };

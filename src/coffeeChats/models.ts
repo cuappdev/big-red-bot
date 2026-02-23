@@ -1,4 +1,4 @@
-import { getModelForClass, prop } from "@typegoose/typegoose";
+import { getModelForClass, prop, index } from "@typegoose/typegoose";
 
 class CoffeeChatPairing {
   @prop({ required: true })
@@ -28,12 +28,30 @@ class CoffeeChatConfig {
   lastPairingDate?: Date;
 }
 
+@index({ userId: 1, channelId: 1 }, { unique: true })
+class CoffeeChatUserPreference {
+  @prop({ required: true })
+  userId!: string;
+
+  @prop({ required: true })
+  channelId!: string;
+
+  @prop({ default: true })
+  isOptedIn!: boolean;
+
+  @prop()
+  updatedAt?: Date;
+}
+
 const CoffeeChatPairingModel = getModelForClass(CoffeeChatPairing);
 const CoffeeChatConfigModel = getModelForClass(CoffeeChatConfig);
+const CoffeeChatUserPreferenceModel = getModelForClass(CoffeeChatUserPreference);
 
 export {
   CoffeeChatPairing,
   CoffeeChatPairingModel,
   CoffeeChatConfig,
   CoffeeChatConfigModel,
+  CoffeeChatUserPreference,
+  CoffeeChatUserPreferenceModel,
 };
