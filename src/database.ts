@@ -1,16 +1,8 @@
-import mongoose, { ConnectOptions } from "mongoose";
-import { logWithTime } from "./utils";
+import mongoose from "mongoose";
+import { logWithTime } from "./utils/timeUtils";
 
 export const dbConnect = async () => {
-  const uri =
-    process.env.NODE_ENV == "dev" || process.env.NODE_ENV == "test"
-      ? process.env.DEV_URI
-      : process.env.PROD_URI;
+  const uri = process.env.DATABASE_URI;
   await mongoose.connect(uri!);
   logWithTime("✅ Connected to MongoDB");
-};
-
-export const dbDisconnect = async () => {
-  await mongoose.disconnect();
-  logWithTime("✅ Disconnected from MongoDB");
 };

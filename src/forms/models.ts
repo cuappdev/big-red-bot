@@ -6,7 +6,7 @@ class Form {
     title: string,
     ingestedDate: Date,
     dueDate: Date,
-    formURL: string
+    formURL: string,
   ) {
     // invariant: title is unique
     this.title = title;

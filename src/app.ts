@@ -1,9 +1,8 @@
-import express from "express";
 import { dbConnect } from "./database";
 import * as FormController from "./forms/controllers";
 import { Form } from "./forms/models";
 import slackbot from "./slackbot";
-import { logWithTime } from "./utils";
+import { logWithTime } from "./utils/timeUtils";
 import {
   processAllCoffeeChats,
   processCompletedPairings,
@@ -11,8 +10,7 @@ import {
   sendMidwayReminders,
 } from "./coffeeChats/controllers";
 
-// server will be used for webhooks and admin dashboard
-const app = express();
+export const SEMESTER = "sp24";
 
 const sendFormDM = async (form: Form, userEmails: string[]) => {
   const userIdPromises = userEmails.map(async (email) => {
@@ -40,7 +38,7 @@ const sendFormDM = async (form: Form, userEmails: string[]) => {
     throw new Error("Failed to open conversation");
   }
 
-  let channelId = response.channel!.id!;
+  const channelId = response.channel!.id!;
   await slackbot.client.conversations.invite({
     channel: channelId,
     users: userIds.join(","),
@@ -72,11 +70,9 @@ const sendFormReminders = async () => {
 
 export const startServer = async () => {
   await dbConnect();
+  logWithTime("✅ Connected to database!");
   await slackbot.start(process.env.PORT || 3000);
   logWithTime("✅ Slackbot up and running!");
-
-  app.listen(process.env.PORT || 8000);
-  logWithTime("✅ Express server up and running!");
 
   await sendFormReminders();
   setInterval(sendFormReminders, 1000 * 60 * 60 * 24); // Run every 24 hours
@@ -97,3 +93,19 @@ export const startServer = async () => {
   await reportBiweeklyStats();
   setInterval(reportBiweeklyStats, 1000 * 60 * 60 * 24 * 14); // Run every 14 days
 };
+
+startServer().catch((err) => {
+  logWithTime(`Error starting server: ${err}`);
+  process.exit(1);
+});
+
+// Graceful shutdown
+process.on("SIGINT", () => {
+  logWithTime("Shutting down gracefully...");
+  process.exit(0);
+});
+
+process.on("SIGTERM", () => {
+  logWithTime("Shutting down gracefully...");
+  process.exit(0);
+});

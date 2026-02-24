@@ -1,6 +1,6 @@
 import moment from "moment-timezone";
 import slackbot from "../slackbot";
-import { logWithTime } from "../utils";
+import { logWithTime } from "../utils/timeUtils";
 import {
   CoffeeChatConfig,
   CoffeeChatConfigModel,
@@ -350,10 +350,8 @@ export const processCoffeeChatChannel = async (
     );
 
     // Send announcement to the channel
-    const nextPairingDate = moment()
-      .tz("America/New_York")
-      .add(2, "weeks");
-    
+    const nextPairingDate = moment().tz("America/New_York").add(2, "weeks");
+
     await slackbot.client.chat.postMessage({
       channel: config.channelId,
       text: "Coffee chat pairings have been created!",

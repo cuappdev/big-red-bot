@@ -179,7 +179,7 @@ slackbot.command("/coffee-chat-status", async ({ command, ack, say }) => {
     }
 
     const isOptedIn = await getCoffeeChatsOptInStatus(userId, channelId);
-    
+
     if (isOptedIn) {
       await say({
         text: `You are currently opted in to coffee chats.`,

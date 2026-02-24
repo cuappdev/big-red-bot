@@ -30,15 +30,7 @@ Big Red Bot is an internal tool used by AppDev to boost member productivity and 
 
 ### Configuration
 
-1. Create a `.env` file in the root directory with the following variables:
-
-   ```
-   SLACK_BOT_TOKEN=xoxb-your-bot-token
-   SLACK_SIGNING_SECRET=your-signing-secret
-   SLACK_APP_TOKEN=xapp-your-app-token
-   MONGODB_URI=your-mongodb-connection-string
-   PORT=3000
-   ```
+1. Create a `.env` file in the root directory by copying the `.env.template` and populating the values.
 
 2. Add your Google Service Account credentials:
    - Place your `service_account.json` file in the root directory

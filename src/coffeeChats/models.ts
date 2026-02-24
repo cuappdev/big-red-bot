@@ -57,7 +57,9 @@ class CoffeeChatUserPreference {
 
 const CoffeeChatPairingModel = getModelForClass(CoffeeChatPairing);
 const CoffeeChatConfigModel = getModelForClass(CoffeeChatConfig);
-const CoffeeChatUserPreferenceModel = getModelForClass(CoffeeChatUserPreference);
+const CoffeeChatUserPreferenceModel = getModelForClass(
+  CoffeeChatUserPreference,
+);
 
 export {
   CoffeeChatPairing,

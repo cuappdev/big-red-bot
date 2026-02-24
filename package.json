@@ -1,7 +1,7 @@
 {
   "name": "big-red-bot",
   "version": "1.0.0",
-  "main": "src/index.ts",
+  "main": "src/app.ts",
   "repository": "https://github.com/cuappdev/big-red-bot",
   "license": "MIT",
   "dependencies": {
@@ -9,7 +9,6 @@
     "@typegoose/typegoose": "^13.1.0",
     "@types/node": "^24.10.13",
     "dotenv": "^17.3.1",
-    "express": "^5.2.1",
     "google-auth-library": "^10.5.0",
     "google-spreadsheet": "^5.2.0",
     "moment-timezone": "^0.6.0",
@@ -19,7 +18,17 @@
     "typescript": "^5.9.3"
   },
   "scripts": {
-    "start": "ts-node --transpile-only -r dotenv/config src/index.ts",
-    "dev": "nodemon -r dotenv/config src/index.ts"
+    "start": "ts-node --transpile-only -r dotenv/config src/app.ts",
+    "dev": "nodemon -r dotenv/config src/app.ts",
+    "format": "prettier --write .",
+    "lint": "eslint . --ext .ts --fix"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "eslint": "^10.0.2",
+    "globals": "^17.3.0",
+    "jiti": "^2.6.1",
+    "prettier": "3.8.1",
+    "typescript-eslint": "^8.56.1"
   }
 }

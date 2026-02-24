@@ -1,11 +1,11 @@
 import moment from "moment-timezone";
-import { SEMESTER } from "../constants";
+import { SEMESTER } from "../app";
 import {
   dateToESTString,
   getStartOfToday,
   isToday,
   logWithTime,
-} from "../utils";
+} from "../utils/timeUtils";
 import { initSheet } from "./formTracker";
 import { Form, FormModel } from "./models";
 
@@ -40,7 +40,7 @@ const ingestForms = async () => {
  * Returns a map of form title member emails who have not completed the form
  */
 const getPendingMembers = async () => {
-  let pendingMembersMap = new Map<Form, string[]>();
+  const pendingMembersMap = new Map<Form, string[]>();
   const formTracker = await initSheet();
   const trackerSheet =
     formTracker.sheetsByTitle[process.env.TRACKER_SHEET_NAME!];
@@ -53,12 +53,12 @@ const getPendingMembers = async () => {
   logWithTime(
     `Due Forms: ${dueForms.map(
       (dueForm) =>
-        `${dueForm.title} is due Today (${dateToESTString(dueForm.dueDate)})`
-    )}`
+        `${dueForm.title} is due Today (${dateToESTString(dueForm.dueDate)})`,
+    )}`,
   );
 
   for (const form of dueForms) {
-    let pendingMembers = [];
+    const pendingMembers = [];
     for (const row of rows) {
       if (row.get(form.title) == "❌" && isToday(form.dueDate)) {
         pendingMembers.push(row.get("All Members"));
