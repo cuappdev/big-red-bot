@@ -279,76 +279,55 @@ export function registerCoffeeChatCommands(slackbot: App) {
 
     try {
       const userId = command.user_id;
-      const channelId = command.channel_id;
 
-      // Check if channel is registered for coffee chats
-      const config = await CoffeeChatConfigModel.findOne({ channelId });
-      if (!config) {
+      // Get all registered coffee chat channels
+      const allConfigs = await CoffeeChatConfigModel.find({ isActive: true });
+
+      if (allConfigs.length === 0) {
         await say({
-          text: `❌ This channel is not registered for coffee chats.`,
+          text: `❌ No coffee chat channels are currently registered.`,
         });
         return;
       }
 
-      const isOptedIn = await getCoffeeChatsOptInStatus(userId, channelId);
-
-      if (isOptedIn) {
-        await say({
-          text: `You are currently opted in to coffee chats.`,
-          blocks: [
-            {
-              type: "section",
-              text: {
-                type: "mrkdwn",
-                text: `☕ You are currently *opted in* to coffee chats in this channel.`,
-              },
-            },
-            {
-              type: "actions",
-              elements: [
-                {
-                  type: "button",
-                  text: {
-                    type: "plain_text",
-                    text: "⏸️ Pause Future Pairings",
-                  },
-                  style: "danger",
-                  action_id: "coffee_chat_opt_out",
-                  value: channelId,
-                },
-              ],
-            },
-          ],
-        });
-      } else {
-        await say({
-          text: `You are currently opted out of coffee chats.`,
-          blocks: [
-            {
-              type: "section",
-              text: {
-                type: "mrkdwn",
-                text: `You are currently *opted out* of coffee chats in this channel.`,
-              },
-            },
-            {
-              type: "actions",
-              elements: [
-                {
-                  type: "button",
-                  text: {
-                    type: "plain_text",
-                    text: "▶️ Resume Pairings",
-                  },
-                  style: "primary",
-                  action_id: "coffee_chat_opt_in",
-                  value: channelId,
-                },
-              ],
-            },
-          ],
-        });
+      // Get status for all channels
+      const statusLines: string[] = [];
+      for (const config of allConfigs) {
+        const isOptedIn = await getCoffeeChatsOptInStatus(userId, config.channelId);
+        const statusEmoji = isOptedIn ? "✅" : "⏸️";
+        const statusText = isOptedIn ? "Opted in" : "Opted out";
+        statusLines.push(`${statusEmoji} <#${config.channelId}>: ${statusText}`);
       }
+
+      await say({
+        text: `Your coffee chat status across all channels`,
+        blocks: [
+          {
+            type: "header",
+            text: {
+              type: "plain_text",
+              text: "☕ Your Coffee Chat Status",
+              emoji: true,
+            },
+          },
+          {
+            type: "section",
+            text: {
+              type: "mrkdwn",
+              text: statusLines.join("\n"),
+            },
+          },
+          {
+            type: "context",
+            elements: [
+              {
+                type: "mrkdwn",
+                text: "Use the buttons in your pairing DMs to change your status for specific channels.",
+              },
+            ],
+          },
+        ],
+      });
     } catch (error) {
       await say(`❌ Error checking coffee chat status: ${error}`);
     }
@@ -416,32 +395,21 @@ export function registerCoffeeChatCommands(slackbot: App) {
 
     try {
       const userId = command.user_id;
-      const channelId = command.channel_id;
 
-      // Check if channel is registered for coffee chats
-      const config = await CoffeeChatConfigModel.findOne({ channelId });
-      if (!config) {
-        await say({
-          text: `❌ This channel is not registered for coffee chats.`,
-        });
-        return;
-      }
-
-      // Find all pairings that include this user in this channel
+      // Find all pairings that include this user across all channels
       const pairings = await CoffeeChatPairingModel.find({
-        channelId,
         userIds: userId,
       }).sort({ createdAt: -1 });
 
       if (pairings.length === 0) {
         await say({
-          text: `You haven't been paired with anyone yet in this channel.`,
+          text: `You haven't been paired with anyone yet.`,
           blocks: [
             {
               type: "section",
               text: {
                 type: "mrkdwn",
-                text: `☕ You haven't been paired with anyone yet in this channel. Stay tuned for your first coffee chat!`,
+                text: `☕ You haven't been paired with anyone yet. Stay tuned for your first coffee chat!`,
               },
             },
           ],
@@ -449,29 +417,40 @@ export function registerCoffeeChatCommands(slackbot: App) {
         return;
       }
 
-      // Build the history message
-      const historyLines: string[] = [];
-
+      // Build the history message grouped by channel
+      const pairingsByChannel = new Map<string, typeof pairings>();
       for (const pairing of pairings) {
-        const partners = pairing.userIds
-          .filter((id) => id !== userId)
-          .map((id) => `<@${id}>`)
-          .join(", ");
-
-        const date = moment(pairing.createdAt)
-          .tz("America/New_York")
-          .format("MMM D, YYYY");
-
-        let status = "";
-        if (pairing.isActive) {
-          status = "🟢 Active";
-        } else if (pairing.meetupConfirmed) {
-          status = "✅ Met";
-        } else {
-          status = "❌ Did not meet";
+        if (!pairingsByChannel.has(pairing.channelId)) {
+          pairingsByChannel.set(pairing.channelId, []);
         }
+        pairingsByChannel.get(pairing.channelId)!.push(pairing);
+      }
 
-        historyLines.push(`• ${date} - ${partners} ${status}`);
+      const historyLines: string[] = [];
+      for (const [channelId, channelPairings] of pairingsByChannel) {
+        historyLines.push(`\n*<#${channelId}>* (${channelPairings.length} pairing${channelPairings.length !== 1 ? "s" : ""}):`);
+        
+        for (const pairing of channelPairings) {
+          const partners = pairing.userIds
+            .filter((id) => id !== userId)
+            .map((id) => `<@${id}>`)
+            .join(", ");
+
+          const date = moment(pairing.createdAt)
+            .tz("America/New_York")
+            .format("MMM D, YYYY");
+
+          let status = "";
+          if (pairing.isActive) {
+            status = "🟢 Active";
+          } else if (pairing.meetupConfirmed) {
+            status = "✅ Met";
+          } else {
+            status = "❌ Did not meet";
+          }
+
+          historyLines.push(`  • ${date} - ${partners} ${status}`);
+        }
       }
 
       await say({
@@ -489,7 +468,7 @@ export function registerCoffeeChatCommands(slackbot: App) {
             type: "section",
             text: {
               type: "mrkdwn",
-              text: `You've been paired *${pairings.length} time${pairings.length !== 1 ? "s" : ""}* in this channel:\n\n${historyLines.join("\n")}`,
+              text: `You've been paired *${pairings.length} time${pairings.length !== 1 ? "s" : ""}* across all channels:${historyLines.join("\n")}`,
             },
           },
           {

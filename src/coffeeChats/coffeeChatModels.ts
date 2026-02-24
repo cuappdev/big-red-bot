@@ -12,9 +12,6 @@ class CoffeeChatPairing {
   createdAt!: Date;
 
   @prop()
-  notifiedAt?: Date;
-
-  @prop()
   conversationId?: string;
 
   @prop({ default: true })

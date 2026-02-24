@@ -80,6 +80,22 @@ export function registerCoffeeChatActions(slackbot: App) {
                 text: `✅ Welcome back! You've been opted back into coffee chat pairings. You'll be included in future rounds.`,
               },
             },
+            // TODO: Add button to skip once
+            {
+              type: "actions",
+              elements: [
+                {
+                  type: "button",
+                  text: {
+                    type: "plain_text",
+                    text: "🚫 Opt Out",
+                  },
+                  style: "danger",
+                  action_id: "coffee_chat_opt_out",
+                  value: channelId,
+                },
+              ],
+            },
           ],
           replace_original: false,
         });
@@ -112,6 +128,13 @@ export function registerCoffeeChatActions(slackbot: App) {
               text: {
                 type: "mrkdwn",
                 text: `✅ Awesome! Thanks for confirming your meetup. We hope you had a great time! 🎉`,
+              },
+            },
+            {
+              type: "section",
+              text: {
+                type: "mrkdwn",
+                text: `📸 Don't forget to share any photos from your meetup here in this DM! We'll post a collection in the channel to celebrate.`,
               },
             },
           ],

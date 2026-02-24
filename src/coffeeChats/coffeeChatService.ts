@@ -438,7 +438,6 @@ export const processCoffeeChatChannel = async (
         channelId: config.channelId,
         userIds: pairing,
         createdAt: now,
-        notifiedAt: now,
         isActive: true,
         reminderSent: false,
         photosPosted: false,
@@ -603,7 +602,7 @@ export const optOutOfCoffeeChats = async (
   await CoffeeChatUserPreferenceModel.findOneAndUpdate(
     { userId, channelId },
     { isOptedIn: false, updatedAt: now },
-    { upsert: true, new: true },
+    { upsert: true },
   );
 
   logWithTime(
@@ -623,7 +622,7 @@ export const optInToCoffeeChats = async (
   await CoffeeChatUserPreferenceModel.findOneAndUpdate(
     { userId, channelId },
     { isOptedIn: true, updatedAt: now },
-    { upsert: true, new: true },
+    { upsert: true },
   );
 
   logWithTime(`User ${userId} opted into coffee chats in channel ${channelId}`);
@@ -668,7 +667,7 @@ export const skipNextPairing = async (
   await CoffeeChatUserPreferenceModel.findOneAndUpdate(
     { userId, channelId },
     { skipNextPairing: true, updatedAt: now },
-    { upsert: true, new: true },
+    { upsert: true },
   );
 
   logWithTime(`User ${userId} will skip next pairing in channel ${channelId}`);

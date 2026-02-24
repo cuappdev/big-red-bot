@@ -1,0 +1,86 @@
+{
+  "display_information": {
+    "name": "Big Red Bot",
+    "description": "An assistant for AppDev",
+    "background_color": "#2c2d30",
+    "long_description": "An assistant for AppDev\r\nTo view the code, please visit https://github.com/cuappdev/big-red-bot\r\nTo edit configs, please visit https://api.slack.com/apps/A0AGNUYFGBC\r\nCreated by Aayush Agnihotri (TL Spring 26)"
+  },
+  "features": {
+    "bot_user": {
+      "display_name": "Big Red Bot",
+      "always_online": true
+    },
+    "slash_commands": [
+      {
+        "command": "/register-coffee-chats",
+        "description": "Enable biweekly coffee chat pairings",
+        "usage_hint": "/register-coffee-chats <PAIRING_FREQUENCY_DAYS>",
+        "should_escape": false
+      },
+      {
+        "command": "/trigger-coffee-chats",
+        "description": "Manually trigger coffee chat pairings",
+        "should_escape": false
+      },
+      {
+        "command": "/disable-coffee-chats",
+        "description": "Disable coffee chat pairings",
+        "should_escape": false
+      },
+      {
+        "command": "/my-coffee-chats",
+        "description": "View coffee chat pairing history",
+        "should_escape": false
+      },
+      {
+        "command": "/reset-coffee-chats",
+        "description": "Reset all coffee chat data and start fresh",
+        "should_escape": false
+      },
+      {
+        "command": "/coffee-chat-status",
+        "description": "Check coffee chat opt-in status",
+        "should_escape": false
+      },
+      {
+        "command": "/pause-coffee-chats",
+        "description": "Pause coffee chats (stop automatic scheduling)",
+        "should_escape": false
+      },
+      {
+        "command": "/start-coffee-chats",
+        "description": "Start coffee chats (begin the pairing cycle)",
+        "should_escape": false
+      }
+    ]
+  },
+  "oauth_config": {
+    "scopes": {
+      "bot": [
+        "channels:history",
+        "channels:manage",
+        "channels:read",
+        "chat:write",
+        "commands",
+        "groups:read",
+        "groups:write",
+        "im:history",
+        "im:write",
+        "users:read",
+        "users:read.email",
+        "mpim:write"
+      ]
+    }
+  },
+  "settings": {
+    "event_subscriptions": {
+      "bot_events": ["message.channels", "message.im"]
+    },
+    "interactivity": {
+      "is_enabled": true
+    },
+    "org_deploy_enabled": false,
+    "socket_mode_enabled": true,
+    "token_rotation_enabled": false
+  }
+}
