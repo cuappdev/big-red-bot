@@ -107,16 +107,16 @@ const getChannelMembers = async (channelId: string): Promise<string[]> => {
 
   const nonBotMembers = memberDetails.filter((m) => !m.isBot).map((m) => m.id);
 
-  // Filter out opted-out users
+  // Filter out opted-out users and users who want to skip next pairing
   const preferences = await CoffeeChatUserPreferenceModel.find({
     channelId,
     userId: { $in: nonBotMembers },
-    isOptedIn: false,
+    $or: [{ isOptedIn: false }, { skipNextPairing: true }],
   });
 
-  const optedOutUserIds = new Set(preferences.map((p) => p.userId));
+  const excludedUserIds = new Set(preferences.map((p) => p.userId));
 
-  return nonBotMembers.filter((userId) => !optedOutUserIds.has(userId));
+  return nonBotMembers.filter((userId) => !excludedUserIds.has(userId));
 };
 
 /**
@@ -196,6 +196,7 @@ const createPairings = (
 const notifyPairing = async (
   userIds: string[],
   channelId: string,
+  pairingId: string,
 ): Promise<string | null> => {
   const userMentions = userIds.map((id) => `<@${id}>`).join(", ");
   const activity = getRandomActivity();
@@ -250,6 +251,25 @@ const notifyPairing = async (
         {
           type: "actions",
           elements: [
+            {
+              type: "button",
+              text: {
+                type: "plain_text",
+                text: "✅ We Met!",
+              },
+              style: "primary",
+              action_id: "coffee_chat_confirm_meetup",
+              value: pairingId,
+            },
+            {
+              type: "button",
+              text: {
+                type: "plain_text",
+                text: "⏭️ Skip Next Time",
+              },
+              action_id: "coffee_chat_skip_next",
+              value: channelId,
+            },
             {
               type: "button",
               text: {
@@ -326,21 +346,32 @@ export const processCoffeeChatChannel = async (
     const now = moment().tz("America/New_York").toDate();
 
     for (const pairing of pairings) {
-      // Notify users and get conversation ID
-      const conversationId = await notifyPairing(pairing, config.channelId);
-
-      // Save to database
+      // Save to database first to get the pairing ID
       const pairingDoc = new CoffeeChatPairingModel({
         channelId: config.channelId,
         userIds: pairing,
         createdAt: now,
         notifiedAt: now,
-        conversationId: conversationId || undefined,
         isActive: true,
         reminderSent: false,
         photosPosted: false,
+        meetupConfirmed: false,
       });
-      await pairingDoc.save();
+      const savedPairing = await pairingDoc.save();
+
+      // Notify users with the pairing ID
+      const conversationId = await notifyPairing(
+        pairing,
+        config.channelId,
+        savedPairing._id.toString(),
+      );
+
+      // Update with conversation ID if successful
+      if (conversationId) {
+        await CoffeeChatPairingModel.findByIdAndUpdate(savedPairing._id, {
+          conversationId,
+        });
+      }
     }
 
     // Update last pairing date
@@ -349,6 +380,9 @@ export const processCoffeeChatChannel = async (
       { channelId: config.channelId },
       { lastPairingDate: now },
     );
+
+    // Clear skip flags for all users who skipped this round
+    await clearSkipFlags(config.channelId);
 
     // Send announcement to the channel
     const nextPairingDate = moment().tz("America/New_York").add(2, "weeks");
@@ -481,6 +515,53 @@ export const getCoffeeChatsOptInStatus = async (
 
   // Default to opted in if no preference exists
   return preference?.isOptedIn ?? true;
+};
+
+/**
+ * Confirms that a pairing met up
+ */
+export const confirmMeetup = async (pairingId: string): Promise<void> => {
+  await CoffeeChatPairingModel.findByIdAndUpdate(pairingId, {
+    meetupConfirmed: true,
+  });
+
+  logWithTime(`Meetup confirmed for pairing ${pairingId}`);
+};
+
+/**
+ * Sets a user to skip the next pairing
+ */
+export const skipNextPairing = async (
+  userId: string,
+  channelId: string,
+): Promise<void> => {
+  const now = moment().tz("America/New_York").toDate();
+
+  await CoffeeChatUserPreferenceModel.findOneAndUpdate(
+    { userId, channelId },
+    { skipNextPairing: true, updatedAt: now },
+    { upsert: true, new: true },
+  );
+
+  logWithTime(
+    `User ${userId} will skip next pairing in channel ${channelId}`,
+  );
+};
+
+/**
+ * Clears the skip flag for users in a specific channel
+ */
+const clearSkipFlags = async (channelId: string): Promise<void> => {
+  const result = await CoffeeChatUserPreferenceModel.updateMany(
+    { channelId, skipNextPairing: true },
+    { skipNextPairing: false },
+  );
+
+  if (result.modifiedCount > 0) {
+    logWithTime(
+      `Cleared skip flags for ${result.modifiedCount} user(s) in channel ${channelId}`,
+    );
+  }
 };
 
 /**
@@ -842,6 +923,40 @@ export const sendMidwayReminders = async (): Promise<void> => {
                 type: "mrkdwn",
                 text: `Just a friendly reminder about your coffee chat! You have about a week left to connect. ☕\n\nDon't forget to share any photos you take together in this chat!`,
               },
+            },
+            {
+              type: "actions",
+              elements: [
+                {
+                  type: "button",
+                  text: {
+                    type: "plain_text",
+                    text: "✅ We Met!",
+                  },
+                  style: "primary",
+                  action_id: "coffee_chat_confirm_meetup",
+                  value: pairing._id.toString(),
+                },
+                {
+                  type: "button",
+                  text: {
+                    type: "plain_text",
+                    text: "⏭️ Skip Next Time",
+                  },
+                  action_id: "coffee_chat_skip_next",
+                  value: pairing.channelId,
+                },
+                {
+                  type: "button",
+                  text: {
+                    type: "plain_text",
+                    text: "⏸️ Pause Future Pairings",
+                  },
+                  style: "danger",
+                  action_id: "coffee_chat_opt_out",
+                  value: pairing.channelId,
+                },
+              ],
             },
           ],
         });

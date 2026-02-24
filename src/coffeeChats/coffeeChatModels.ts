@@ -24,6 +24,9 @@ class CoffeeChatPairing {
 
   @prop({ default: false })
   photosPosted!: boolean;
+
+  @prop({ default: false })
+  meetupConfirmed!: boolean;
 }
 
 class CoffeeChatConfig {
@@ -50,6 +53,9 @@ class CoffeeChatUserPreference {
 
   @prop({ default: true })
   isOptedIn!: boolean;
+
+  @prop({ default: false })
+  skipNextPairing!: boolean;
 
   @prop()
   updatedAt?: Date;

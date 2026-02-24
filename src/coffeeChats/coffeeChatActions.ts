@@ -1,5 +1,10 @@
 import { App, BlockAction, SlackActionMiddlewareArgs } from "@slack/bolt";
-import { optOutOfCoffeeChats, optInToCoffeeChats } from "./coffeeChatService";
+import {
+  optOutOfCoffeeChats,
+  optInToCoffeeChats,
+  confirmMeetup,
+  skipNextPairing,
+} from "./coffeeChatService";
 
 export function registerCoffeeChatActions(slackbot: App) {
   // Action handler for opting out of coffee chats
@@ -81,6 +86,75 @@ export function registerCoffeeChatActions(slackbot: App) {
       } catch (error) {
         await respond({
           text: `❌ Error opting into coffee chats: ${error}`,
+          replace_original: false,
+        });
+      }
+    },
+  );
+
+  // Action handler for confirming meetup
+  slackbot.action(
+    "coffee_chat_confirm_meetup",
+    async ({ ack, body, respond }: SlackActionMiddlewareArgs<BlockAction>) => {
+      await ack();
+
+      try {
+        const action = body.actions[0];
+        const pairingId = ("value" in action ? action.value : "") as string;
+
+        await confirmMeetup(pairingId);
+
+        await respond({
+          text: `Thanks for confirming! 🎉`,
+          blocks: [
+            {
+              type: "section",
+              text: {
+                type: "mrkdwn",
+                text: `✅ Awesome! Thanks for confirming your meetup. We hope you had a great time! 🎉`,
+              },
+            },
+          ],
+          replace_original: false,
+        });
+      } catch (error) {
+        await respond({
+          text: `❌ Error confirming meetup: ${error}`,
+          replace_original: false,
+        });
+      }
+    },
+  );
+
+  // Action handler for skipping the next pairing
+  slackbot.action(
+    "coffee_chat_skip_next",
+    async ({ ack, body, respond }: SlackActionMiddlewareArgs<BlockAction>) => {
+      await ack();
+
+      try {
+        const userId = body.user.id;
+        const action = body.actions[0];
+        const channelId = ("value" in action ? action.value : "") as string;
+
+        await skipNextPairing(userId, channelId);
+
+        await respond({
+          text: `You'll skip the next pairing.`,
+          blocks: [
+            {
+              type: "section",
+              text: {
+                type: "mrkdwn",
+                text: `✅ Got it! You'll skip the next coffee chat pairing. You'll automatically be included in the round after that.`,
+              },
+            },
+          ],
+          replace_original: false,
+        });
+      } catch (error) {
+        await respond({
+          text: `❌ Error skipping next pairing: ${error}`,
           replace_original: false,
         });
       }
