@@ -1,4 +1,5 @@
 import { getModelForClass, prop, index } from "@typegoose/typegoose";
+import { DEFAULT_PAIRING_FREQUENCY_DAYS } from "../app";
 
 class CoffeeChatPairing {
   @prop({ required: true })
@@ -39,8 +40,17 @@ class CoffeeChatConfig {
   @prop({ default: true })
   isActive!: boolean;
 
+  @prop({ default: false })
+  isStarted!: boolean;
+
+  @prop({ default: DEFAULT_PAIRING_FREQUENCY_DAYS })
+  pairingFrequencyDays!: number;
+
   @prop()
   lastPairingDate?: Date;
+
+  @prop()
+  nextPairingDate?: Date;
 }
 
 @index({ userId: 1, channelId: 1 }, { unique: true })

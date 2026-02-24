@@ -8,6 +8,7 @@ import {
   CoffeeChatPairingModel,
   CoffeeChatUserPreferenceModel,
 } from "./coffeeChatModels";
+import { DEFAULT_PAIRING_FREQUENCY_DAYS } from "../app";
 
 const COFFEE_CHAT_ACTIVITIES = [
   "Grab coffee at a local café ☕",
@@ -191,15 +192,83 @@ const createPairings = (
 };
 
 /**
+ * Extracts scheduling links (Calendly, Cal.com, etc.) from user profile
+ */
+const getSchedulingLink = async (userId: string): Promise<string | null> => {
+  try {
+    const userInfo = await slackbot.client.users.info({ user: userId });
+    if (!userInfo.ok || !userInfo.user?.profile) {
+      return null;
+    }
+
+    const profile = userInfo.user.profile;
+
+    // Check common profile fields for scheduling links
+    const fieldsToCheck = [
+      profile.status_text,
+      profile.phone,
+      ...((profile as Record<string, unknown>).fields
+        ? Object.values(
+            (profile as Record<string, unknown>).fields as Record<
+              string,
+              { value?: string }
+            >,
+          ).map((f) => f?.value)
+        : []),
+    ];
+
+    // Common scheduling platforms
+    const schedulingPatterns = [
+      /calendly\.com\/[\w-]+/i,
+      /cal\.com\/[\w-]+/i,
+      /savvycal\.com\/[\w-]+/i,
+      /tidycal\.com\/[\w-]+/i,
+      /zcal\.co\/[\w-]+/i,
+      /schedule\.(?:once|now)\/[\w-]+/i,
+    ];
+
+    for (const field of fieldsToCheck) {
+      if (!field || typeof field !== "string") continue;
+
+      for (const pattern of schedulingPatterns) {
+        const match = field.match(pattern);
+        if (match) {
+          // Ensure it's a full URL
+          let link = match[0];
+          if (!link.startsWith("http")) {
+            link = "https://" + link;
+          }
+          return link;
+        }
+      }
+    }
+
+    return null;
+  } catch (error) {
+    logWithTime(`Error fetching scheduling link for user ${userId}: ${error}`);
+    return null;
+  }
+};
+
+/**
  * Creates a group DM and notifies paired users
  */
 const notifyPairing = async (
   userIds: string[],
   channelId: string,
   pairingId: string,
+  pairingFrequencyDays: number,
 ): Promise<string | null> => {
   const userMentions = userIds.map((id) => `<@${id}>`).join(", ");
   const activity = getRandomActivity();
+
+  // Fetch scheduling links for all users
+  const schedulingLinks = await Promise.all(
+    userIds.map(async (userId) => {
+      const link = await getSchedulingLink(userId);
+      return { userId, link };
+    }),
+  );
 
   try {
     // Create a group DM with all users in the pairing
@@ -212,8 +281,10 @@ const notifyPairing = async (
       return null;
     }
 
-    // Calculate deadline (2 weeks from now)
-    const deadline = moment().tz("America/New_York").add(2, "weeks");
+    // Calculate deadline based on configured frequency
+    const deadline = moment()
+      .tz("America/New_York")
+      .add(pairingFrequencyDays, "days");
 
     // Send a message to the group DM with interactive buttons
     const messageResult = await slackbot.client.chat.postMessage({
@@ -231,7 +302,7 @@ const notifyPairing = async (
           type: "section",
           text: {
             type: "mrkdwn",
-            text: `:bulb: *Suggested activity:* ${activity}\n\nTake some time over the next two weeks to connect and get to know each other better!`,
+            text: `:bulb: *Suggested activity:* ${activity}\n\nTake some time over the next ${pairingFrequencyDays} day${pairingFrequencyDays !== 1 ? "s" : ""} to connect and get to know each other better!`,
           },
         },
         {
@@ -245,9 +316,25 @@ const notifyPairing = async (
           type: "section",
           text: {
             type: "mrkdwn",
-            text: `:camera_with_flash: *Don't forget to snap some photos!* Share them here in this chat — we'll post a collection in the channel after two weeks to celebrate your meetup!`,
+            text: `:camera_with_flash: *Don't forget to snap some photos!* Share them here in this chat — we'll post a collection in the channel after the pairing period to celebrate your meetup!`,
           },
         },
+        ...(schedulingLinks.some((s) => s.link)
+          ? [
+              {
+                type: "section" as const,
+                text: {
+                  type: "mrkdwn" as const,
+                  text:
+                    `:link: *Scheduling Links:*\n` +
+                    schedulingLinks
+                      .filter((s) => s.link)
+                      .map((s) => `• <@${s.userId}>: ${s.link}`)
+                      .join("\n"),
+                },
+              },
+            ]
+          : []),
         {
           type: "actions",
           elements: [
@@ -364,6 +451,7 @@ export const processCoffeeChatChannel = async (
         pairing,
         config.channelId,
         savedPairing._id.toString(),
+        config.pairingFrequencyDays,
       );
 
       // Update with conversation ID if successful
@@ -374,19 +462,21 @@ export const processCoffeeChatChannel = async (
       }
     }
 
-    // Update last pairing date
+    // Update last pairing date and next pairing date
+    const nextPairingDate = moment()
+      .tz("America/New_York")
+      .add(config.pairingFrequencyDays, "days");
     config.lastPairingDate = now;
+    config.nextPairingDate = nextPairingDate.toDate();
     await CoffeeChatConfigModel.updateOne(
       { channelId: config.channelId },
-      { lastPairingDate: now },
+      { lastPairingDate: now, nextPairingDate: nextPairingDate.toDate() },
     );
 
     // Clear skip flags for all users who skipped this round
     await clearSkipFlags(config.channelId);
 
     // Send announcement to the channel
-    const nextPairingDate = moment().tz("America/New_York").add(2, "weeks");
-
     await slackbot.client.chat.postMessage({
       channel: config.channelId,
       text: "Coffee chat pairings have been created!",
@@ -427,10 +517,13 @@ export const processCoffeeChatChannel = async (
  * Processes all active coffee chat channels
  */
 export const processAllCoffeeChats = async (): Promise<void> => {
-  const activeConfigs = await CoffeeChatConfigModel.find({ isActive: true });
+  const activeConfigs = await CoffeeChatConfigModel.find({
+    isActive: true,
+    isStarted: true,
+  });
 
   if (activeConfigs.length === 0) {
-    logWithTime("No active coffee chat channels configured");
+    logWithTime("No active and started coffee chat channels configured");
     return;
   }
 
@@ -445,6 +538,7 @@ export const processAllCoffeeChats = async (): Promise<void> => {
 export const registerCoffeeChatChannel = async (
   channelId: string,
   channelName: string,
+  pairingFrequencyDays: number = DEFAULT_PAIRING_FREQUENCY_DAYS,
 ): Promise<void> => {
   const existing = await CoffeeChatConfigModel.findOne({ channelId });
 
@@ -457,10 +551,44 @@ export const registerCoffeeChatChannel = async (
     channelId,
     channelName,
     isActive: true,
+    isStarted: false,
+    pairingFrequencyDays,
   });
 
   await config.save();
   logWithTime(`✅ Registered ${channelName} for coffee chat pairings`);
+};
+
+/**
+ * Starts coffee chat pairings for a channel (begins the pairing cycle)
+ */
+export const startCoffeeChats = async (channelId: string): Promise<void> => {
+  const config = await CoffeeChatConfigModel.findOne({ channelId });
+  if (!config) {
+    throw new Error(`Channel ${channelId} not found`);
+  }
+
+  const now = moment().tz("America/New_York").toDate();
+  const nextPairingDate = moment()
+    .tz("America/New_York")
+    .add(config.pairingFrequencyDays, "days")
+    .toDate();
+
+  await CoffeeChatConfigModel.updateOne(
+    { channelId },
+    { isStarted: true, lastPairingDate: now, nextPairingDate },
+  );
+
+  logWithTime(`✅ Started coffee chats for channel ${channelId}`);
+};
+
+/**
+ * Pauses coffee chat pairings for a channel (stops automatic scheduling)
+ */
+export const pauseCoffeeChats = async (channelId: string): Promise<void> => {
+  await CoffeeChatConfigModel.updateOne({ channelId }, { isStarted: false });
+
+  logWithTime(`⏸️ Paused coffee chats for channel ${channelId}`);
 };
 
 /**
@@ -543,9 +671,7 @@ export const skipNextPairing = async (
     { upsert: true, new: true },
   );
 
-  logWithTime(
-    `User ${userId} will skip next pairing in channel ${channelId}`,
-  );
+  logWithTime(`User ${userId} will skip next pairing in channel ${channelId}`);
 };
 
 /**
@@ -905,6 +1031,14 @@ export const sendMidwayReminders = async (): Promise<void> => {
       try {
         const userMentions = pairing.userIds.map((id) => `<@${id}>`).join(", ");
 
+        // Fetch scheduling links for all users
+        const schedulingLinks = await Promise.all(
+          pairing.userIds.map(async (userId) => {
+            const link = await getSchedulingLink(userId);
+            return { userId, link };
+          }),
+        );
+
         // Send reminder to the group DM
         await slackbot.client.chat.postMessage({
           channel: pairing.conversationId,
@@ -924,6 +1058,22 @@ export const sendMidwayReminders = async (): Promise<void> => {
                 text: `Just a friendly reminder about your coffee chat! You have about a week left to connect. ☕\n\nDon't forget to share any photos you take together in this chat!`,
               },
             },
+            ...(schedulingLinks.some((s) => s.link)
+              ? [
+                  {
+                    type: "section" as const,
+                    text: {
+                      type: "mrkdwn" as const,
+                      text:
+                        `:link: *Scheduling Links:*\n` +
+                        schedulingLinks
+                          .filter((s) => s.link)
+                          .map((s) => `• <@${s.userId}>: ${s.link}`)
+                          .join("\n"),
+                    },
+                  },
+                ]
+              : []),
             {
               type: "actions",
               elements: [

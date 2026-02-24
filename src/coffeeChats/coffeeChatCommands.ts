@@ -4,20 +4,20 @@ import {
   processCoffeeChatChannel,
   registerCoffeeChatChannel,
   getCoffeeChatsOptInStatus,
+  startCoffeeChats,
+  pauseCoffeeChats,
 } from "./coffeeChatService";
 import {
   CoffeeChatConfigModel,
   CoffeeChatPairingModel,
   CoffeeChatUserPreferenceModel,
 } from "./coffeeChatModels";
+import { DEFAULT_PAIRING_FREQUENCY_DAYS } from "../app";
 
 /**
  * Checks if a user is a workspace admin or owner
  */
-const isUserAdmin = async (
-  slackbot: App,
-  userId: string,
-): Promise<boolean> => {
+const isUserAdmin = async (slackbot: App, userId: string): Promise<boolean> => {
   try {
     const userInfo = await slackbot.client.users.info({ user: userId });
     return (
@@ -53,10 +53,38 @@ export function registerCoffeeChatCommands(slackbot: App) {
 
       const channelName = channelInfo.channel?.name || channelId;
 
-      await registerCoffeeChatChannel(channelId, channelName);
+      // Parse frequency from command text (optional)
+      let pairingFrequencyDays = DEFAULT_PAIRING_FREQUENCY_DAYS;
+      const text = command.text.trim();
+      if (text) {
+        const parsed = parseInt(text, 10);
+        if (!isNaN(parsed) && parsed > 0 && parsed <= 365) {
+          pairingFrequencyDays = parsed;
+        } else {
+          await say({
+            text: `❌ Invalid frequency. Please provide a number between 1 and 365 days.`,
+          });
+          return;
+        }
+      }
+
+      await registerCoffeeChatChannel(
+        channelId,
+        channelName,
+        pairingFrequencyDays,
+      );
+
+      const frequencyText =
+        pairingFrequencyDays === 7
+          ? "weekly"
+          : pairingFrequencyDays === 14
+            ? "biweekly"
+            : pairingFrequencyDays === 30
+              ? "monthly"
+              : `every ${pairingFrequencyDays} days`;
 
       await say(
-        `✅ This channel has been registered for biweekly coffee chat pairings! Members will be paired every two weeks.`,
+        `✅ This channel has been registered for ${frequencyText} coffee chat pairings! Use \`/start-coffee-chats\` to begin the pairing cycle.`,
       );
     } catch (error) {
       await say(`❌ Error registering channel: ${error}`);
@@ -70,9 +98,7 @@ export function registerCoffeeChatCommands(slackbot: App) {
     // Check if user is admin
     const isAdmin = await isUserAdmin(slackbot, command.user_id);
     if (!isAdmin) {
-      await say(
-        `❌ Only workspace admins can manually trigger coffee chats.`,
-      );
+      await say(`❌ Only workspace admins can manually trigger coffee chats.`);
       return;
     }
 
@@ -119,6 +145,131 @@ export function registerCoffeeChatCommands(slackbot: App) {
       await say(`✅ Coffee chat pairings have been disabled for this channel.`);
     } catch (error) {
       await say(`❌ Error disabling coffee chats: ${error}`);
+    }
+  });
+
+  // Command to start coffee chats (begin the pairing cycle)
+  slackbot.command("/start-coffee-chats", async ({ command, ack, say }) => {
+    await ack();
+
+    // Check if user is admin
+    const isAdmin = await isUserAdmin(slackbot, command.user_id);
+    if (!isAdmin) {
+      await say(`❌ Only workspace admins can start coffee chats.`);
+      return;
+    }
+
+    try {
+      const channelId = command.channel_id;
+      const config = await CoffeeChatConfigModel.findOne({ channelId });
+
+      if (!config) {
+        await say({
+          text: `❌ This channel is not registered for coffee chats. Use \`/register-coffee-chats\` first.`,
+        });
+        return;
+      }
+
+      if (config.isStarted) {
+        await say({
+          text: `❌ Coffee chats are already running in this channel. Use \`/pause-coffee-chats\` to pause them.`,
+        });
+        return;
+      }
+
+      // Start the coffee chats and create first pairing
+      await startCoffeeChats(channelId);
+      await processCoffeeChatChannel(config);
+
+      const nextPairingDate = moment()
+        .tz("America/New_York")
+        .add(config.pairingFrequencyDays, "days");
+
+      const frequencyText =
+        config.pairingFrequencyDays === 7
+          ? "weekly"
+          : config.pairingFrequencyDays === 14
+            ? "biweekly"
+            : config.pairingFrequencyDays === 30
+              ? "monthly"
+              : `every ${config.pairingFrequencyDays} days`;
+
+      await say({
+        text: "Coffee chats have been started!",
+        blocks: [
+          {
+            type: "section",
+            text: {
+              type: "mrkdwn",
+              text: `✅ Coffee chats have been started (${frequencyText})! The first pairings have been created.`,
+            },
+          },
+          {
+            type: "section",
+            text: {
+              type: "mrkdwn",
+              text: `📅 Next automatic pairing will be on ${nextPairingDate.format("dddd (MMM Do)")} at ${nextPairingDate.format("h:mm A z")}`,
+            },
+          },
+        ],
+      });
+    } catch (error) {
+      await say(`❌ Error starting coffee chats: ${error}`);
+    }
+  });
+
+  // Command to pause coffee chats (stop automatic scheduling)
+  slackbot.command("/pause-coffee-chats", async ({ command, ack, say }) => {
+    await ack();
+
+    // Check if user is admin
+    const isAdmin = await isUserAdmin(slackbot, command.user_id);
+    if (!isAdmin) {
+      await say(`❌ Only workspace admins can pause coffee chats.`);
+      return;
+    }
+
+    try {
+      const channelId = command.channel_id;
+      const config = await CoffeeChatConfigModel.findOne({ channelId });
+
+      if (!config) {
+        await say({
+          text: `❌ This channel is not registered for coffee chats.`,
+        });
+        return;
+      }
+
+      if (!config.isStarted) {
+        await say({
+          text: `❌ Coffee chats are not currently running. Use \`/start-coffee-chats\` to begin.`,
+        });
+        return;
+      }
+
+      await pauseCoffeeChats(channelId);
+
+      await say({
+        text: "Coffee chats have been paused.",
+        blocks: [
+          {
+            type: "section",
+            text: {
+              type: "mrkdwn",
+              text: `⏸️ Coffee chats have been paused. No new automatic pairings will be created.`,
+            },
+          },
+          {
+            type: "section",
+            text: {
+              type: "mrkdwn",
+              text: `Use \`/start-coffee-chats\` to resume automatic pairings.`,
+            },
+          },
+        ],
+      });
+    } catch (error) {
+      await say(`❌ Error pausing coffee chats: ${error}`);
     }
   });
 

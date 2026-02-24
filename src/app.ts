@@ -12,6 +12,7 @@ import { registerCoffeeChatCommands } from "./coffeeChats/coffeeChatCommands";
 import { registerCoffeeChatActions } from "./coffeeChats/coffeeChatActions";
 
 export const SEMESTER = "sp24";
+export const DEFAULT_PAIRING_FREQUENCY_DAYS = 7;
 
 const initializeFormServices = async () => {
   await sendFormReminders();
