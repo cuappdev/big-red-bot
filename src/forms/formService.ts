@@ -7,7 +7,8 @@ import {
   logWithTime,
 } from "../utils/timeUtils";
 import { initSheet } from "./formTracker";
-import { Form, FormModel } from "./models";
+import { Form, FormModel } from "./formModels";
+import slackbot from "../slackbot";
 
 const ingestForms = async () => {
   const formTracker = await initSheet();
@@ -71,4 +72,58 @@ const getPendingMembers = async () => {
   return pendingMembersMap;
 };
 
-export { getPendingMembers, ingestForms };
+const sendFormDM = async (form: Form, userEmails: string[]) => {
+  const userIdPromises = userEmails.map(async (email) => {
+    const user = await slackbot.client.users.lookupByEmail({ email: email });
+    if (!user.user) {
+      return null;
+    }
+    return user.user.id;
+  });
+
+  let userIds = await Promise.all(userIdPromises);
+  userIds = userIds.filter((id) => id != null);
+
+  let channelTitle = form.title
+    .toLowerCase()
+    .replaceAll(" ", "-")
+    .replaceAll(/[.,/#!$%^&*;:{}=`~()]/g, "");
+  channelTitle = `${channelTitle}-reminder`;
+  logWithTime(`Attempting to create channel ${channelTitle}`);
+  const response = await slackbot.client.conversations.create({
+    name: channelTitle,
+  });
+
+  if (!response.ok) {
+    throw new Error("Failed to open conversation");
+  }
+
+  const channelId = response.channel!.id!;
+  await slackbot.client.conversations.invite({
+    channel: channelId,
+    users: userIds.join(","),
+  });
+
+  slackbot.client.chat.postMessage({
+    channel: channelId,
+    text: `Hey <!channel>, this is your reminder to fill out the <${form.formURL}|${form.title}> form by tonight!`,
+  });
+};
+
+const sendFormReminders = async () => {
+  await ingestForms();
+  const pendingMembersMap = await getPendingMembers().catch((err) => {
+    logWithTime(`Error while getting pending members: ${err}`);
+    return new Map<Form, string[]>();
+  });
+
+  for (const [formTitle, userEmails] of pendingMembersMap.entries()) {
+    if (userEmails.length == 0) continue; // Skip if no pending members for this form
+
+    await sendFormDM(formTitle, userEmails).catch((err) =>
+      logWithTime(`Error while sending DMs: ${err}`),
+    );
+  }
+};
+
+export { getPendingMembers, ingestForms, sendFormDM, sendFormReminders };

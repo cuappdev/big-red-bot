@@ -81,6 +81,8 @@ Biweekly coffee chat pairings to help team members get to know each other better
 - `/register-coffee-chats` - Enable biweekly coffee chat pairings for the current channel
 - `/trigger-coffee-chats` - Manually trigger coffee chat pairings (useful for testing)
 - `/disable-coffee-chats` - Disable coffee chat pairings for the current channel
+- `/coffee-chat-status` - Check your opt-in/opt-out status for coffee chats
+- `/reset-coffee-chats` - Reset all coffee chat data and start from a fresh slate
 
 #### How It Works
 

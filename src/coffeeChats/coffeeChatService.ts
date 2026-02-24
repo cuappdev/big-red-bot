@@ -1,4 +1,5 @@
 import moment from "moment-timezone";
+import type { Block, KnownBlock } from "@slack/web-api";
 import slackbot from "../slackbot";
 import { logWithTime } from "../utils/timeUtils";
 import {
@@ -6,7 +7,7 @@ import {
   CoffeeChatConfigModel,
   CoffeeChatPairingModel,
   CoffeeChatUserPreferenceModel,
-} from "./models";
+} from "./coffeeChatModels";
 
 const COFFEE_CHAT_ACTIVITIES = [
   "Grab coffee at a local café ☕",
@@ -555,7 +556,7 @@ const postPhotosToChannel = async (
     }
 
     // Post photos to the channel
-    const blocks: any[] = [
+    const blocks: (Block | KnownBlock)[] = [
       {
         type: "section",
         text: {
