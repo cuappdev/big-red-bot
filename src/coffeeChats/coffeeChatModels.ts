@@ -2,26 +2,27 @@ import { getModelForClass, prop, index } from "@typegoose/typegoose";
 import { DEFAULT_PAIRING_FREQUENCY_DAYS } from "../app";
 
 class CoffeeChatPairing {
+  // Id of the Slack channel where the pairing is taking place
   @prop({ required: true })
   channelId!: string;
 
+  // List of user IDs in the pairing (usually length 2, sometimes 3 for trio pairings)
   @prop({ required: true, type: () => [String] })
   userIds!: string[];
 
   @prop({ required: true })
   createdAt!: Date;
 
+  // Always set to createdAt + pairingFrequencyDays - 1 frequency
+  @prop({ required: true })
+  dueDate!: Date;
+
+  // DM group id for the pairing, used to send reminders
   @prop()
   conversationId?: string;
 
-  @prop({ default: true })
-  isActive!: boolean;
-
   @prop({ default: false })
-  reminderSent!: boolean;
-
-  @prop({ default: false })
-  photosPosted!: boolean;
+  midpointReminderSent!: boolean;
 
   @prop({ default: false })
   meetupConfirmed!: boolean;
@@ -34,11 +35,9 @@ class CoffeeChatConfig {
   @prop({ required: true })
   channelName!: string;
 
+  // Flag to enable/disable coffee chats in this channel without deleting the config (when disabled, all isActive pairing fields will be set to false)
   @prop({ default: true })
   isActive!: boolean;
-
-  @prop({ default: false })
-  isStarted!: boolean;
 
   @prop({ default: DEFAULT_PAIRING_FREQUENCY_DAYS })
   pairingFrequencyDays!: number;
@@ -46,6 +45,7 @@ class CoffeeChatConfig {
   @prop()
   lastPairingDate?: Date;
 
+  // Always set to lastPairingDate + pairingFrequencyDays
   @prop()
   nextPairingDate?: Date;
 }
@@ -63,9 +63,6 @@ class CoffeeChatUserPreference {
 
   @prop({ default: false })
   skipNextPairing!: boolean;
-
-  @prop()
-  updatedAt?: Date;
 }
 
 const CoffeeChatPairingModel = getModelForClass(CoffeeChatPairing);

@@ -39,9 +39,11 @@ export function registerCoffeeChatCommands(slackbot: App) {
     // Check if user is admin
     const isAdmin = await isUserAdmin(slackbot, command.user_id);
     if (!isAdmin) {
-      await say(
-        `❌ Only workspace admins can register channels for coffee chats.`,
-      );
+      await slackbot.client.chat.postEphemeral({
+        channel: command.channel_id,
+        user: command.user_id,
+        text: `❌ Only workspace admins can register channels for coffee chats.`,
+      });
       return;
     }
 
@@ -98,7 +100,11 @@ export function registerCoffeeChatCommands(slackbot: App) {
     // Check if user is admin
     const isAdmin = await isUserAdmin(slackbot, command.user_id);
     if (!isAdmin) {
-      await say(`❌ Only workspace admins can manually trigger coffee chats.`);
+      await slackbot.client.chat.postEphemeral({
+        channel: command.channel_id,
+        user: command.user_id,
+        text: `❌ Only workspace admins can manually trigger coffee chats.`,
+      });
       return;
     }
 
@@ -126,7 +132,11 @@ export function registerCoffeeChatCommands(slackbot: App) {
     // Check if user is admin
     const isAdmin = await isUserAdmin(slackbot, command.user_id);
     if (!isAdmin) {
-      await say(`❌ Only workspace admins can disable coffee chats.`);
+      await slackbot.client.chat.postEphemeral({
+        channel: command.channel_id,
+        user: command.user_id,
+        text: `❌ Only workspace admins can disable coffee chats.`,
+      });
       return;
     }
 
@@ -155,7 +165,11 @@ export function registerCoffeeChatCommands(slackbot: App) {
     // Check if user is admin
     const isAdmin = await isUserAdmin(slackbot, command.user_id);
     if (!isAdmin) {
-      await say(`❌ Only workspace admins can start coffee chats.`);
+      await slackbot.client.chat.postEphemeral({
+        channel: command.channel_id,
+        user: command.user_id,
+        text: `❌ Only workspace admins can start coffee chats.`,
+      });
       return;
     }
 
@@ -170,7 +184,7 @@ export function registerCoffeeChatCommands(slackbot: App) {
         return;
       }
 
-      if (config.isStarted) {
+      if (config.isActive) {
         await say({
           text: `❌ Coffee chats are already running in this channel. Use \`/pause-coffee-chats\` to pause them.`,
         });
@@ -225,7 +239,11 @@ export function registerCoffeeChatCommands(slackbot: App) {
     // Check if user is admin
     const isAdmin = await isUserAdmin(slackbot, command.user_id);
     if (!isAdmin) {
-      await say(`❌ Only workspace admins can pause coffee chats.`);
+      await slackbot.client.chat.postEphemeral({
+        channel: command.channel_id,
+        user: command.user_id,
+        text: `❌ Only workspace admins can pause coffee chats.`,
+      });
       return;
     }
 
@@ -240,7 +258,7 @@ export function registerCoffeeChatCommands(slackbot: App) {
         return;
       }
 
-      if (!config.isStarted) {
+      if (!config.isActive) {
         await say({
           text: `❌ Coffee chats are not currently running. Use \`/start-coffee-chats\` to begin.`,
         });
@@ -293,10 +311,15 @@ export function registerCoffeeChatCommands(slackbot: App) {
       // Get status for all channels
       const statusLines: string[] = [];
       for (const config of allConfigs) {
-        const isOptedIn = await getCoffeeChatsOptInStatus(userId, config.channelId);
+        const isOptedIn = await getCoffeeChatsOptInStatus(
+          userId,
+          config.channelId,
+        );
         const statusEmoji = isOptedIn ? "✅" : "⏸️";
         const statusText = isOptedIn ? "Opted in" : "Opted out";
-        statusLines.push(`${statusEmoji} <#${config.channelId}>: ${statusText}`);
+        statusLines.push(
+          `${statusEmoji} <#${config.channelId}>: ${statusText}`,
+        );
       }
 
       await say({
@@ -340,7 +363,11 @@ export function registerCoffeeChatCommands(slackbot: App) {
     // Check if user is admin
     const isAdmin = await isUserAdmin(slackbot, command.user_id);
     if (!isAdmin) {
-      await say(`❌ Only workspace admins can reset coffee chats.`);
+      await slackbot.client.chat.postEphemeral({
+        channel: command.channel_id,
+        user: command.user_id,
+        text: `❌ Only workspace admins can reset coffee chats.`,
+      });
       return;
     }
 
@@ -428,8 +455,10 @@ export function registerCoffeeChatCommands(slackbot: App) {
 
       const historyLines: string[] = [];
       for (const [channelId, channelPairings] of pairingsByChannel) {
-        historyLines.push(`\n*<#${channelId}>* (${channelPairings.length} pairing${channelPairings.length !== 1 ? "s" : ""}):`);
-        
+        historyLines.push(
+          `\n*<#${channelId}>* (${channelPairings.length} pairing${channelPairings.length !== 1 ? "s" : ""}):`,
+        );
+
         for (const pairing of channelPairings) {
           const partners = pairing.userIds
             .filter((id) => id !== userId)

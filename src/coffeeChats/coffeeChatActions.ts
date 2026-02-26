@@ -80,10 +80,18 @@ export function registerCoffeeChatActions(slackbot: App) {
                 text: `✅ Welcome back! You've been opted back into coffee chat pairings. You'll be included in future rounds.`,
               },
             },
-            // TODO: Add button to skip once
             {
               type: "actions",
               elements: [
+                {
+                  type: "button",
+                  text: {
+                    type: "plain_text",
+                    text: "⏭️ Skip Next Time",
+                  },
+                  action_id: "coffee_chat_skip_next",
+                  value: channelId,
+                },
                 {
                   type: "button",
                   text: {
@@ -134,7 +142,7 @@ export function registerCoffeeChatActions(slackbot: App) {
               type: "section",
               text: {
                 type: "mrkdwn",
-                text: `📸 Don't forget to share any photos from your meetup here in this DM! We'll post a collection in the channel to celebrate.`,
+                text: `📸 Don't forget to share any photos from your meetup in the channel to celebrate!`,
               },
             },
           ],
@@ -171,6 +179,31 @@ export function registerCoffeeChatActions(slackbot: App) {
                 type: "mrkdwn",
                 text: `✅ Got it! You'll skip the next coffee chat pairing. You'll automatically be included in the round after that.`,
               },
+            },
+            {
+              type: "actions",
+              elements: [
+                {
+                  type: "button",
+                  text: {
+                    type: "plain_text",
+                    text: "↩️ Undo Skip",
+                  },
+                  style: "primary",
+                  action_id: "coffee_chat_opt_in",
+                  value: channelId,
+                },
+                {
+                  type: "button",
+                  text: {
+                    type: "plain_text",
+                    text: "🚫 Opt Out",
+                  },
+                  style: "danger",
+                  action_id: "coffee_chat_opt_out",
+                  value: channelId,
+                },
+              ],
             },
           ],
           replace_original: false,

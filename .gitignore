@@ -4,3 +4,5 @@ node_modules/
 *.log
 service_account.json
 secrets/
+ca-certificate.crt
+coverage/
