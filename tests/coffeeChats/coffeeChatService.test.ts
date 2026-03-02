@@ -75,7 +75,7 @@ describe("coffeeChatService", () => {
       expect(config).not.toBeNull();
       expect(config?.channelId).toBe(mockChannelId);
       expect(config?.channelName).toBe(mockChannelName);
-      expect(config?.isActive).toBe(true);
+      expect(config?.isActive).toBe(false);
       expect(config?.pairingFrequencyDays).toBe(mockPairingFrequencyDays);
     });
 

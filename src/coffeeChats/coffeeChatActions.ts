@@ -46,7 +46,7 @@ export function registerCoffeeChatActions(slackbot: App) {
               ],
             },
           ],
-          replace_original: false,
+          replace_original: true,
         });
       } catch (error) {
         await respond({
@@ -105,7 +105,7 @@ export function registerCoffeeChatActions(slackbot: App) {
               ],
             },
           ],
-          replace_original: false,
+          replace_original: true,
         });
       } catch (error) {
         await respond({
@@ -206,7 +206,7 @@ export function registerCoffeeChatActions(slackbot: App) {
               ],
             },
           ],
-          replace_original: false,
+          replace_original: true,
         });
       } catch (error) {
         await respond({

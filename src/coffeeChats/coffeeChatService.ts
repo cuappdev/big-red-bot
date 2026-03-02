@@ -301,7 +301,7 @@ export const notifyPairing = async (
           type: "section",
           text: {
             type: "mrkdwn",
-            text: `:calendar: *Meet by:* ${deadline.format("dddd, MMMM Do")}`,
+            text: `:calendar: *Meet by:* ${deadline.format("dddd, MMMM Do")} at ${deadline.format("h:mm A z")}`,
           },
         },
         {
@@ -846,7 +846,7 @@ export const registerCoffeeChatChannel = async (
   const config = new CoffeeChatConfigModel({
     channelId,
     channelName,
-    isActive: true,
+    isActive: false,
     pairingFrequencyDays,
   });
 
