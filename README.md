@@ -8,11 +8,11 @@ Big Red Bot is an internal tool used by AppDev to boost member productivity and 
 
 ### Prerequisites
 
-- Node.js v24.13.1 (or compatible version)
+- Node.js v24+ (or compatible version)
 - npm (comes with Node.js)
 - MongoDB instance (local or remote)
 - Slack workspace with bot permissions
-- Google Service Account (for Google Sheets integration)
+- Google Service Account (for Google Sheets integration — only required if form services are enabled)
 
 ### Installation
 
@@ -32,7 +32,7 @@ Big Red Bot is an internal tool used by AppDev to boost member productivity and 
 
 1. Create a `.env` file in the root directory by copying the `.env.template` and populating the values.
 
-2. Add your Google Service Account credentials:
+2. If using form services, add your Google Service Account credentials:
    - Place your `service_account.json` file in the root directory
    - Ensure this file contains your Google API credentials
 
@@ -52,9 +52,20 @@ This runs the application with hot-reloading using nodemon.
 npm start
 ```
 
+#### Other Scripts
+
+```bash
+npm test              # Run tests
+npm run test:coverage # Run tests with coverage report
+npm run format        # Format code with Prettier
+npm run lint          # Lint and auto-fix with ESLint
+```
+
 ## Features
 
 ### 1. Form Completion Reminders
+
+> **Note:** Form services are currently disabled. To re-enable, uncomment `initializeFormServices()` in `src/app.ts`.
 
 Automatically tracks form completion status via Google Sheets and sends daily Slack reminders to members who haven't completed forms that are due.
 
@@ -64,31 +75,47 @@ Automatically tracks form completion status via Google Sheets and sends daily Sl
 
 ### 2. Coffee Chat Pairings
 
-Biweekly coffee chat pairings to help team members get to know each other better.
+Configurable coffee chat pairings to help team members get to know each other better. Defaults to every 14 days (biweekly).
 
 #### Setup Coffee Chats
 
-1. In any Slack channel where you want to enable coffee chats, run:
+1. In any Slack channel where you want to enable coffee chats, register it (optionally specify a custom pairing frequency):
 
    ```
-   /register-coffee-chats
+   /register-coffee-chats [days]
    ```
 
-2. The bot will automatically pair members every 2 weeks and send DMs with pairing information.
+   For example, `/register-coffee-chats 7` sets weekly pairings. Defaults to 14 days if no argument is given.
+
+2. Start the pairing cycle:
+
+   ```
+   /start-coffee-chats
+   ```
+
+   The bot will create the first round of pairings immediately, then automatically pair members on the configured schedule.
 
 #### Slash Commands
 
-- `/register-coffee-chats` - Enable biweekly coffee chat pairings for the current channel
-- `/trigger-coffee-chats` - Manually trigger coffee chat pairings (useful for testing)
-- `/disable-coffee-chats` - Disable coffee chat pairings for the current channel
-- `/coffee-chat-status` - Check your opt-in/opt-out status for coffee chats
-- `/reset-coffee-chats` - Reset all coffee chat data and start from a fresh slate
+| Command                         | Visibility | Description                                                                                             |
+| ------------------------------- | ---------- | ------------------------------------------------------------------------------------------------------- |
+| `/register-coffee-chats [days]` | Channel    | _(Admin only)_ Register the current channel for coffee chats with an optional pairing frequency in days |
+| `/start-coffee-chats`           | Channel    | _(Admin only)_ Start the pairing cycle and create the first round of pairings                           |
+| `/pause-coffee-chats`           | Channel    | _(Admin only)_ Pause automatic scheduling — no new pairings will be created                             |
+| `/coffee-chat-status`           | Only you   | Check your opt-in/out status across all registered channels                                             |
+| `/my-coffee-chats`              | Only you   | View your full pairing history across all channels                                                      |
 
 #### How It Works
 
-- Members are randomly paired every 2 weeks
-- The algorithm avoids pairing people who were recently matched (within the last 4 weeks)
-- Each pairing receives a random activity suggestion (e.g., "grab coffee at a local café", "play a board game", "visit a museum")
-- If there's an odd number of members, one group will have 3 people
-- All participants receive a DM with their pairing information and activity suggestion
+- New pairings are created and channel stats from the previous round are posted every day at **9:00 AM ET** (for any channel whose next pairing date has arrived)
+- Midway reminders are sent every day at **4:00 PM ET** to pairings that haven't confirmed a meetup yet
+- Members are randomly paired using a shuffle algorithm that avoids repeating pairings from the last 6 weeks
+- If there is an odd number of members, one group will have 3 people
+- Each pairing DM includes a random activity suggestion (e.g., "grab coffee", "play a board game", "visit a museum") and a deadline by which to meet
+- If any paired members have scheduling links (Calendly, Cal.com, etc.) in their Slack profile, those are included in the DM
+- Participants can interact directly from the pairing DM using buttons:
+  - **✅ We Met!** — Confirm the meetup (recorded for stats)
+  - **⏭️ Skip Next Time** — Sit out the next pairing round only
+  - **⏸️ Pause Future Pairings** — Opt out of all future pairings
+- After opting out, a **▶️ Resume Pairings** button lets users opt back in
 - Pairings are tracked in MongoDB to prevent frequent repeats
