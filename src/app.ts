@@ -5,7 +5,7 @@ import slackbot from "./slackbot";
 import { logWithTime } from "./utils/timeUtils";
 import {
   createNewCoffeeChatRounds,
-  completePreviousCoffeeChatRound,
+  reportStats,
   sendMidwayReminders,
 } from "./coffeeChats/coffeeChatService";
 import { registerCoffeeChatCommands } from "./coffeeChats/coffeeChatCommands";
@@ -27,8 +27,8 @@ const initializeCoffeeChatServices = async () => {
   // Schedule all coffee chat tasks to run daily at 9am
   cron.schedule("0 9 * * *", async () => {
     logWithTime("Running scheduled coffee chat tasks at 9am...");
-    // Process previous pairings and report stats
-    await completePreviousCoffeeChatRound();
+    // Send previous round stats
+    await reportStats();
 
     // Create new pairings for the next next round
     await createNewCoffeeChatRounds();

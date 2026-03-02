@@ -1,7 +1,6 @@
 import { App } from "@slack/bolt";
 import moment from "moment-timezone";
 import {
-  processCoffeeChatChannel,
   registerCoffeeChatChannel,
   getCoffeeChatsOptInStatus,
   startCoffeeChats,
@@ -10,7 +9,6 @@ import {
 import {
   CoffeeChatConfigModel,
   CoffeeChatPairingModel,
-  CoffeeChatUserPreferenceModel,
 } from "./coffeeChatModels";
 import { DEFAULT_PAIRING_FREQUENCY_DAYS } from "../app";
 
@@ -63,7 +61,9 @@ export function registerCoffeeChatCommands(slackbot: App) {
         if (!isNaN(parsed) && parsed > 0 && parsed <= 365) {
           pairingFrequencyDays = parsed;
         } else {
-          await say({
+          await slackbot.client.chat.postEphemeral({
+            channel: command.channel_id,
+            user: command.user_id,
             text: `❌ Invalid frequency. Please provide a number between 1 and 365 days.`,
           });
           return;
@@ -89,72 +89,11 @@ export function registerCoffeeChatCommands(slackbot: App) {
         `✅ This channel has been registered for ${frequencyText} coffee chat pairings! Use \`/start-coffee-chats\` to begin the pairing cycle.`,
       );
     } catch (error) {
-      await say(`❌ Error registering channel: ${error}`);
-    }
-  });
-
-  // Command to manually trigger coffee chats for a channel
-  slackbot.command("/trigger-coffee-chats", async ({ command, ack, say }) => {
-    await ack();
-
-    // Check if user is admin
-    const isAdmin = await isUserAdmin(slackbot, command.user_id);
-    if (!isAdmin) {
       await slackbot.client.chat.postEphemeral({
         channel: command.channel_id,
         user: command.user_id,
-        text: `❌ Only workspace admins can manually trigger coffee chats.`,
+        text: `❌ Error registering channel: ${error}`,
       });
-      return;
-    }
-
-    try {
-      const channelId = command.channel_id;
-      const config = await CoffeeChatConfigModel.findOne({ channelId });
-
-      if (!config) {
-        await say(
-          `❌ This channel is not registered for coffee chats. Use \`/register-coffee-chats\` first.`,
-        );
-        return;
-      }
-
-      await processCoffeeChatChannel(config);
-    } catch (error) {
-      await say(`❌ Error triggering coffee chats: ${error}`);
-    }
-  });
-
-  // Command to disable coffee chats for a channel
-  slackbot.command("/disable-coffee-chats", async ({ command, ack, say }) => {
-    await ack();
-
-    // Check if user is admin
-    const isAdmin = await isUserAdmin(slackbot, command.user_id);
-    if (!isAdmin) {
-      await slackbot.client.chat.postEphemeral({
-        channel: command.channel_id,
-        user: command.user_id,
-        text: `❌ Only workspace admins can disable coffee chats.`,
-      });
-      return;
-    }
-
-    try {
-      const channelId = command.channel_id;
-      const result = await CoffeeChatConfigModel.updateOne(
-        { channelId },
-        { isActive: false },
-      );
-
-      if (result.modifiedCount === 0) {
-        await say(`❌ This channel is not registered for coffee chats.`);
-        return;
-      }
-
-      await say(`✅ Coffee chat pairings have been disabled for this channel.`);
-    } catch (error) {
-      await say(`❌ Error disabling coffee chats: ${error}`);
     }
   });
 
@@ -178,14 +117,18 @@ export function registerCoffeeChatCommands(slackbot: App) {
       const config = await CoffeeChatConfigModel.findOne({ channelId });
 
       if (!config) {
-        await say({
+        await slackbot.client.chat.postEphemeral({
+          channel: command.channel_id,
+          user: command.user_id,
           text: `❌ This channel is not registered for coffee chats. Use \`/register-coffee-chats\` first.`,
         });
         return;
       }
 
       if (config.isActive) {
-        await say({
+        await slackbot.client.chat.postEphemeral({
+          channel: command.channel_id,
+          user: command.user_id,
           text: `❌ Coffee chats are already running in this channel. Use \`/pause-coffee-chats\` to pause them.`,
         });
         return;
@@ -193,11 +136,11 @@ export function registerCoffeeChatCommands(slackbot: App) {
 
       // Start the coffee chats and create first pairing
       await startCoffeeChats(channelId);
-      await processCoffeeChatChannel(config);
 
       const nextPairingDate = moment()
         .tz("America/New_York")
-        .add(config.pairingFrequencyDays, "days");
+        .add(config.pairingFrequencyDays, "days")
+        .startOf("day");
 
       const frequencyText =
         config.pairingFrequencyDays === 7
@@ -228,7 +171,11 @@ export function registerCoffeeChatCommands(slackbot: App) {
         ],
       });
     } catch (error) {
-      await say(`❌ Error starting coffee chats: ${error}`);
+      await slackbot.client.chat.postEphemeral({
+        channel: command.channel_id,
+        user: command.user_id,
+        text: `❌ Error starting coffee chats: ${error}`,
+      });
     }
   });
 
@@ -252,14 +199,18 @@ export function registerCoffeeChatCommands(slackbot: App) {
       const config = await CoffeeChatConfigModel.findOne({ channelId });
 
       if (!config) {
-        await say({
+        await slackbot.client.chat.postEphemeral({
+          channel: command.channel_id,
+          user: command.user_id,
           text: `❌ This channel is not registered for coffee chats.`,
         });
         return;
       }
 
       if (!config.isActive) {
-        await say({
+        await slackbot.client.chat.postEphemeral({
+          channel: command.channel_id,
+          user: command.user_id,
           text: `❌ Coffee chats are not currently running. Use \`/start-coffee-chats\` to begin.`,
         });
         return;
@@ -287,22 +238,28 @@ export function registerCoffeeChatCommands(slackbot: App) {
         ],
       });
     } catch (error) {
-      await say(`❌ Error pausing coffee chats: ${error}`);
+      await slackbot.client.chat.postEphemeral({
+        channel: command.channel_id,
+        user: command.user_id,
+        text: `❌ Error pausing coffee chats: ${error}`,
+      });
     }
   });
 
   // Command to check coffee chat opt-in status
-  slackbot.command("/coffee-chat-status", async ({ command, ack, say }) => {
+  slackbot.command("/coffee-chat-status", async ({ command, ack }) => {
     await ack();
 
     try {
       const userId = command.user_id;
 
       // Get all registered coffee chat channels
-      const allConfigs = await CoffeeChatConfigModel.find({ isActive: true });
+      const allConfigs = await CoffeeChatConfigModel.find({});
 
       if (allConfigs.length === 0) {
-        await say({
+        await slackbot.client.chat.postEphemeral({
+          channel: command.channel_id,
+          user: command.user_id,
           text: `❌ No coffee chat channels are currently registered.`,
         });
         return;
@@ -322,7 +279,9 @@ export function registerCoffeeChatCommands(slackbot: App) {
         );
       }
 
-      await say({
+      await slackbot.client.chat.postEphemeral({
+        channel: command.channel_id,
+        user: command.user_id,
         text: `Your coffee chat status across all channels`,
         blocks: [
           {
@@ -352,72 +311,16 @@ export function registerCoffeeChatCommands(slackbot: App) {
         ],
       });
     } catch (error) {
-      await say(`❌ Error checking coffee chat status: ${error}`);
-    }
-  });
-
-  // Command to reset all coffee chat data and start fresh
-  slackbot.command("/reset-coffee-chats", async ({ command, ack, say }) => {
-    await ack();
-
-    // Check if user is admin
-    const isAdmin = await isUserAdmin(slackbot, command.user_id);
-    if (!isAdmin) {
       await slackbot.client.chat.postEphemeral({
         channel: command.channel_id,
         user: command.user_id,
-        text: `❌ Only workspace admins can reset coffee chats.`,
+        text: `❌ Error checking coffee chat status: ${error}`,
       });
-      return;
-    }
-
-    try {
-      const channelId = command.channel_id;
-
-      // Check if channel is registered for coffee chats
-      const config = await CoffeeChatConfigModel.findOne({ channelId });
-      if (!config) {
-        await say({
-          text: `❌ This channel is not registered for coffee chats. Use \`/register-coffee-chats\` first.`,
-        });
-        return;
-      }
-
-      // Delete all pairings for this channel
-      const pairingsDeleted = await CoffeeChatPairingModel.deleteMany({
-        channelId,
-      });
-
-      // Delete all user preferences for this channel
-      const preferencesDeleted = await CoffeeChatUserPreferenceModel.deleteMany(
-        { channelId },
-      );
-
-      // Reset the lastPairingDate in config
-      await CoffeeChatConfigModel.updateOne(
-        { channelId },
-        { $unset: { lastPairingDate: "" } },
-      );
-
-      await say({
-        text: `✅ Coffee chats have been reset for this channel!`,
-        blocks: [
-          {
-            type: "section",
-            text: {
-              type: "mrkdwn",
-              text: `✅ *Coffee chats have been reset!*\n\n*Deleted:*\n• ${pairingsDeleted.deletedCount} pairing(s)\n• ${preferencesDeleted.deletedCount} user preference(s)\n• Reset last pairing date\n\nYou can now start fresh with coffee chat pairings.`,
-            },
-          },
-        ],
-      });
-    } catch (error) {
-      await say(`❌ Error resetting coffee chats: ${error}`);
     }
   });
 
   // Command to view pairing history
-  slackbot.command("/my-coffee-chats", async ({ command, ack, say }) => {
+  slackbot.command("/my-coffee-chats", async ({ command, ack }) => {
     await ack();
 
     try {
@@ -429,7 +332,9 @@ export function registerCoffeeChatCommands(slackbot: App) {
       }).sort({ createdAt: -1 });
 
       if (pairings.length === 0) {
-        await say({
+        await slackbot.client.chat.postEphemeral({
+          channel: command.channel_id,
+          user: command.user_id,
           text: `You haven't been paired with anyone yet.`,
           blocks: [
             {
@@ -470,9 +375,7 @@ export function registerCoffeeChatCommands(slackbot: App) {
             .format("MMM D, YYYY");
 
           let status = "";
-          if (pairing.isActive) {
-            status = "🟢 Active";
-          } else if (pairing.meetupConfirmed) {
+          if (pairing.meetupConfirmed) {
             status = "✅ Met";
           } else {
             status = "❌ Did not meet";
@@ -482,7 +385,9 @@ export function registerCoffeeChatCommands(slackbot: App) {
         }
       }
 
-      await say({
+      await slackbot.client.chat.postEphemeral({
+        channel: command.channel_id,
+        user: command.user_id,
         text: `Your coffee chat history`,
         blocks: [
           {
@@ -505,14 +410,18 @@ export function registerCoffeeChatCommands(slackbot: App) {
             elements: [
               {
                 type: "mrkdwn",
-                text: "🟢 Active pairing • ✅ Met • ❌ Did not meet",
+                text: "✅ Met • ❌ Did not meet",
               },
             ],
           },
         ],
       });
     } catch (error) {
-      await say(`❌ Error retrieving pairing history: ${error}`);
+      await slackbot.client.chat.postEphemeral({
+        channel: command.channel_id,
+        user: command.user_id,
+        text: `❌ Error retrieving pairing history: ${error}`,
+      });
     }
   });
 }

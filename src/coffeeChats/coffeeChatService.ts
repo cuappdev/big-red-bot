@@ -79,7 +79,9 @@ const getRandomActivity = (): string => {
 /**
  * Gets all members from a Slack channel (excluding bots and opted-out users)
  */
-const getChannelMembers = async (channelId: string): Promise<string[]> => {
+export const getChannelMembers = async (
+  channelId: string,
+): Promise<string[]> => {
   const result = await slackbot.client.conversations.members({
     channel: channelId,
   });
@@ -116,7 +118,7 @@ const getChannelMembers = async (channelId: string): Promise<string[]> => {
 /**
  * Gets recent pairings to avoid repeating them
  */
-const getRecentPairings = async (
+export const getRecentPairings = async (
   channelId: string,
   weeksBack: number = 6,
 ): Promise<Set<string>> => {
@@ -142,7 +144,7 @@ const getRecentPairings = async (
 /**
  * Creates optimal pairings avoiding recent matches
  */
-const createPairings = (
+export const createPairings = (
   userIds: string[],
   recentPairs: Set<string>,
 ): string[][] => {
@@ -187,7 +189,9 @@ const createPairings = (
 /**
  * Extracts scheduling links (Calendly, Cal.com, etc.) from user profile
  */
-const getSchedulingLink = async (userId: string): Promise<string | null> => {
+export const getSchedulingLink = async (
+  userId: string,
+): Promise<string | null> => {
   try {
     const userInfo = await slackbot.client.users.info({ user: userId });
     if (!userInfo.ok || !userInfo.user?.profile) {
@@ -244,7 +248,7 @@ const getSchedulingLink = async (userId: string): Promise<string | null> => {
 /**
  * Creates a group DM and notifies paired users
  */
-const notifyPairing = async (
+export const notifyPairing = async (
   userIds: string[],
   channelId: string,
   pairingId: string,
@@ -408,6 +412,20 @@ export const createCoffeeChatsForChannel = async (
   config: CoffeeChatConfig,
 ): Promise<void> => {
   try {
+    // Skip if there are already active pairings for this channel
+    const now = moment().tz("America/New_York").toDate();
+    const activePairings = await CoffeeChatPairingModel.find({
+      channelId: config.channelId,
+      dueDate: { $gte: now },
+    });
+
+    if (activePairings.length > 0) {
+      logWithTime(
+        `Channel ${config.channelName} already has ${activePairings.length} active pairing(s). Skipping new pairing creation.`,
+      );
+      return;
+    }
+
     logWithTime(`Creating coffee chats for channel ${config.channelName}`);
 
     // Get all channel members
@@ -431,7 +449,6 @@ export const createCoffeeChatsForChannel = async (
     );
 
     // Save pairings and notify users
-    const now = moment().tz("America/New_York").toDate();
     const dueDate = moment()
       .tz("America/New_York")
       .add(config.pairingFrequencyDays - 1, "days")
@@ -549,29 +566,38 @@ export const reportStats = async (): Promise<void> => {
 /**
  * Generates and reports coffee chat statistics for a channel
  */
-const reportChannelStats = async (config: CoffeeChatConfig): Promise<void> => {
+export const reportChannelStats = async (
+  config: CoffeeChatConfig,
+): Promise<void> => {
   try {
     const periodAgo = moment()
       .tz("America/New_York")
-      .subtract(config.pairingFrequencyDays, "days")
       .startOf("day")
+      .subtract(config.pairingFrequencyDays, "days")
       .toDate();
 
     // Get all pairings from the past pairing period for this channel
+    // Only consider pairings whose due date is within the past pairing frequency, to ensure we are reporting on the most recent round of pairings
     const periodPairings = await CoffeeChatPairingModel.find({
       channelId: config.channelId,
-      createdAt: { $gte: periodAgo },
+      dueDate: {
+        $gte: periodAgo,
+        $lte: moment().tz("America/New_York").startOf("day").toDate(),
+      },
     });
 
     if (periodPairings.length === 0) {
       return;
     }
 
+    const completedPairings = periodPairings.filter((p) => p.meetupConfirmed);
+
     // Calculate stats
     const totalPairings = periodPairings.length;
+    const totalCompletedPairings = completedPairings.length;
     const uniqueParticipants = new Set<string>();
 
-    for (const pairing of periodPairings) {
+    for (const pairing of completedPairings) {
       pairing.userIds.forEach((userId) => uniqueParticipants.add(userId));
     }
 
@@ -580,7 +606,7 @@ const reportChannelStats = async (config: CoffeeChatConfig): Promise<void> => {
     const totalMembers = allMembers.length;
     const participationRate =
       totalMembers > 0
-        ? ((uniqueParticipants.size / totalMembers) * 100).toFixed(1)
+        ? ((uniqueParticipants.size / totalMembers) * 100).toFixed(2)
         : "0.0";
 
     // Post stats to channel
@@ -610,6 +636,10 @@ const reportChannelStats = async (config: CoffeeChatConfig): Promise<void> => {
             {
               type: "mrkdwn",
               text: `*Participation Rate:*\n${participationRate}%`,
+            },
+            {
+              type: "mrkdwn",
+              text: `*Completed Pairings:*\n${totalCompletedPairings} of ${totalPairings}`,
             },
           ],
         },
@@ -667,7 +697,7 @@ export const sendMidwayReminders = async (): Promise<void> => {
           $gte: midwayStart,
           $lte: midwayEnd,
         },
-        reminderSent: false,
+        midpointReminderSent: false,
         meetupConfirmed: false,
         conversationId: { $exists: true, $ne: null },
       });
@@ -686,9 +716,11 @@ export const sendMidwayReminders = async (): Promise<void> => {
             .map((id) => `<@${id}>`)
             .join(", ");
 
-          const daysRemaining = moment(pairing.dueDate)
-            .tz("America/New_York")
-            .diff(moment().tz("America/New_York"), "days");
+          const daysRemaining = Math.ceil(
+            moment(pairing.dueDate)
+              .tz("America/New_York")
+              .diff(moment().tz("America/New_York"), "hours") / 24,
+          );
 
           // Fetch scheduling links for all users
           const schedulingLinks = await Promise.all(
@@ -773,7 +805,7 @@ export const sendMidwayReminders = async (): Promise<void> => {
           // Mark reminder as sent
           await CoffeeChatPairingModel.updateOne(
             { _id: pairing._id },
-            { reminderSent: true },
+            { midpointReminderSent: true },
           );
 
           logWithTime(
@@ -793,11 +825,6 @@ export const sendMidwayReminders = async (): Promise<void> => {
   } catch (error) {
     logWithTime(`Error sending midway reminders: ${error}`);
   }
-};
-
-export const completePreviousCoffeeChatRound = async (): Promise<void> => {
-  // Report coffee chat statistics - check each channel's custom schedule
-  await reportStats();
 };
 
 // ___________________________________________________________________________________
@@ -833,7 +860,15 @@ export const registerCoffeeChatChannel = async (
 export const startCoffeeChats = async (channelId: string): Promise<void> => {
   const config = await CoffeeChatConfigModel.findOne({ channelId });
   if (!config) {
-    throw new Error(`Channel ${channelId} not found`);
+    logWithTime(
+      `Channel with ID ${channelId} is not registered for coffee chats`,
+    );
+    return;
+  }
+
+  if (!config.isActive) {
+    await CoffeeChatConfigModel.updateOne({ channelId }, { isActive: true });
+    logWithTime(`Re-activated coffee chats for channel ${channelId}`);
   }
 
   const now = moment().tz("America/New_York").startOf("day").toDate();
@@ -851,7 +886,9 @@ export const startCoffeeChats = async (channelId: string): Promise<void> => {
     },
   );
 
-  logWithTime(`✅ Started coffee chats for channel ${channelId}`);
+  await createCoffeeChatsForChannel(config);
+
+  logWithTime(`✅ Started and created coffee chats for channel ${channelId}`);
 };
 
 /**
@@ -943,7 +980,7 @@ export const skipNextPairing = async (
 /**
  * Clears the skip flag for users in a specific channel
  */
-const clearSkipFlags = async (channelId: string): Promise<void> => {
+export const clearSkipFlags = async (channelId: string): Promise<void> => {
   const result = await CoffeeChatUserPreferenceModel.updateMany(
     { channelId, skipNextPairing: true },
     { skipNextPairing: false },

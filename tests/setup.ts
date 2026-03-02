@@ -1,6 +1,6 @@
 /**
  * Global test setup
- * 
+ *
  * This file runs once before all tests and sets up an in-memory MongoDB instance
  * using mongodb-memory-server. This ensures:
  * - Tests don't require a running MongoDB server
@@ -20,10 +20,10 @@ beforeAll(async () => {
   // Create an in-memory MongoDB instance for testing
   mongoServer = await MongoMemoryServer.create();
   const mongoUri = mongoServer.getUri();
-  
+
   // Set the test database URI
   process.env.TEST_DATABASE_URI = mongoUri;
-  
+
   // Connect to the in-memory database
   await mongoose.connect(mongoUri);
 });

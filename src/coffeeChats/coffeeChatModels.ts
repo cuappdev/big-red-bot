@@ -13,11 +13,11 @@ class CoffeeChatPairing {
   @prop({ required: true })
   createdAt!: Date;
 
-  // Always set to createdAt + pairingFrequencyDays - 1 frequency
+  // Always set to createdAt + pairingFrequencyDays - 1 frequency so that pairings are due the day before the next round of pairings is created
   @prop({ required: true })
   dueDate!: Date;
 
-  // DM group id for the pairing, used to send reminders
+  // DM groupchat id for the pairing, used to send reminders
   @prop()
   conversationId?: string;
 
