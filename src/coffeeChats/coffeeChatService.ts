@@ -521,7 +521,7 @@ export const createCoffeeChatsForChannel = async (
           type: "section",
           text: {
             type: "mrkdwn",
-            text: `:calendar: Your next scheduled pairing is on ${nextPairingDate.format("dddd (MMM Do)")} at ${nextPairingDate.format("h:mm A z")}`,
+            text: `:calendar: Your next scheduled pairing is on ${nextPairingDate.format("dddd (MMM Do)")}`,
           },
         },
       ],
