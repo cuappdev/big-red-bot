@@ -407,6 +407,177 @@ describe("coffeeChatService", () => {
     });
   });
 
+  describe("setTrioPairingPreference", () => {
+    it("should set preferTrioPairing to true for a user", async () => {
+      const mockChannelId = "C12345";
+      const mockUserId = "U12345";
+
+      await coffeeChatService.setTrioPairingPreference(
+        mockUserId,
+        mockChannelId,
+        true,
+      );
+
+      const preference = await CoffeeChatUserPreferenceModel.findOne({
+        userId: mockUserId,
+        channelId: mockChannelId,
+      });
+      expect(preference).not.toBeNull();
+      expect(preference?.preferTrioPairing).toBe(true);
+    });
+
+    it("should set preferTrioPairing to false for a user", async () => {
+      const mockChannelId = "C12345";
+      const mockUserId = "U12345";
+
+      // First opt in to trio
+      await coffeeChatService.setTrioPairingPreference(
+        mockUserId,
+        mockChannelId,
+        true,
+      );
+
+      // Then toggle back off
+      await coffeeChatService.setTrioPairingPreference(
+        mockUserId,
+        mockChannelId,
+        false,
+      );
+
+      const preference = await CoffeeChatUserPreferenceModel.findOne({
+        userId: mockUserId,
+        channelId: mockChannelId,
+      });
+      expect(preference).not.toBeNull();
+      expect(preference?.preferTrioPairing).toBe(false);
+    });
+  });
+
+  describe("getTrioPairingPreference", () => {
+    it("should return false by default when no preference exists", async () => {
+      const result = await coffeeChatService.getTrioPairingPreference(
+        "U12345",
+        "C12345",
+      );
+      expect(result).toBe(false);
+    });
+
+    it("should return true when user prefers trio pairings", async () => {
+      const mockChannelId = "C12345";
+      const mockUserId = "U12345";
+
+      await new CoffeeChatUserPreferenceModel({
+        channelId: mockChannelId,
+        userId: mockUserId,
+        preferTrioPairing: true,
+      }).save();
+
+      const result = await coffeeChatService.getTrioPairingPreference(
+        mockUserId,
+        mockChannelId,
+      );
+      expect(result).toBe(true);
+    });
+
+    it("should return false when user does not prefer trio pairings", async () => {
+      const mockChannelId = "C12345";
+      const mockUserId = "U12345";
+
+      await new CoffeeChatUserPreferenceModel({
+        channelId: mockChannelId,
+        userId: mockUserId,
+        preferTrioPairing: false,
+      }).save();
+
+      const result = await coffeeChatService.getTrioPairingPreference(
+        mockUserId,
+        mockChannelId,
+      );
+      expect(result).toBe(false);
+    });
+  });
+
+  describe("createPairings (trio preference)", () => {
+    it("should group 3 trio-preferring users into a single trio", () => {
+      const userIds = ["U1", "U2", "U3"];
+      const recentPairs = new Set<string>();
+      const trioPrefUserIds = new Set(["U1", "U2", "U3"]);
+
+      const pairings = coffeeChatService.createPairings(
+        userIds,
+        recentPairs,
+        trioPrefUserIds,
+      );
+
+      expect(pairings.length).toBe(1);
+      expect(pairings[0].length).toBe(3);
+      expect(pairings[0]).toEqual(expect.arrayContaining(["U1", "U2", "U3"]));
+    });
+
+    it("should form a trio from trio-preferring users and pair the rest normally", () => {
+      const userIds = ["U1", "U2", "U3", "U4", "U5"];
+      const recentPairs = new Set<string>();
+      const trioPrefUserIds = new Set(["U1", "U2", "U3"]);
+
+      const pairings = coffeeChatService.createPairings(
+        userIds,
+        recentPairs,
+        trioPrefUserIds,
+      );
+
+      // Should yield 1 trio + 1 pair = 2 groups total
+      expect(pairings.length).toBe(2);
+
+      const trioGroup = pairings.find((p) => p.length === 3);
+      const pairGroup = pairings.find((p) => p.length === 2);
+      expect(trioGroup).toBeDefined();
+      expect(pairGroup).toBeDefined();
+
+      expect(trioGroup).toEqual(expect.arrayContaining(["U1", "U2", "U3"]));
+      expect(pairGroup).toEqual(expect.arrayContaining(["U4", "U5"]));
+    });
+
+    it("should add a leftover user to a trio-preferring pairing when possible", () => {
+      // 4 users total: 1 trio-preferring, 3 normal → after pairing normally we
+      // get 2 pairs with one leftover being absorbed into the trio-pref pair
+      const userIds = ["U1", "U2", "U3", "U4", "U5"];
+      const recentPairs = new Set<string>();
+      // Only U1 prefers trio — not enough for a dedicated trio, so they go into normal pool
+      const trioPrefUserIds = new Set(["U1"]);
+
+      const pairings = coffeeChatService.createPairings(
+        userIds,
+        recentPairs,
+        trioPrefUserIds,
+      );
+
+      // 5 people → 2 groups (one of size 3, one of size 2)
+      const totalUsers = pairings.reduce((sum, p) => sum + p.length, 0);
+      expect(totalUsers).toBe(5);
+
+      // The group containing U1 (trio-pref) should absorb the odd person out
+      const trioGroup = pairings.find(
+        (p) => p.length === 3 && p.includes("U1"),
+      );
+      expect(trioGroup).toBeDefined();
+    });
+
+    it("should behave the same as before when no trio preferences are set", () => {
+      const userIds = ["U1", "U2", "U3", "U4"];
+      const recentPairs = new Set<string>();
+      const trioPrefUserIds = new Set<string>();
+
+      const pairings = coffeeChatService.createPairings(
+        userIds,
+        recentPairs,
+        trioPrefUserIds,
+      );
+
+      expect(pairings.length).toBe(2);
+      pairings.forEach((p) => expect(p.length).toBe(2));
+    });
+  });
+
   describe("createNewCoffeeChatRounds", () => {
     it("create coffee chats for all active channels", async () => {
       const mockChannelId = "C12345";

@@ -142,18 +142,31 @@ export const getRecentPairings = async (
 };
 
 /**
- * Creates optimal pairings avoiding recent matches
+ * Creates optimal pairings avoiding recent matches.
+ * Users in trioPrefUserIds prefer to be grouped in threes.
  */
 export const createPairings = (
   userIds: string[],
   recentPairs: Set<string>,
+  trioPrefUserIds: Set<string> = new Set(),
 ): string[][] => {
   const shuffled = shuffleArray(userIds);
   const pairings: string[][] = [];
 
-  // Try to create pairs of 2, avoiding recent pairings when possible
-  const unpaired = [...shuffled];
+  // Separate users who prefer trio pairings from others
+  const trioPref = shuffled.filter((id) => trioPrefUserIds.has(id));
+  const normalPref = shuffled.filter((id) => !trioPrefUserIds.has(id));
 
+  // Group trio-preferring users into threes first
+  const trioPrefQueue = [...trioPref];
+  while (trioPrefQueue.length >= 3) {
+    pairings.push(trioPrefQueue.splice(0, 3));
+  }
+
+  // Remaining trio-preferring users fall back into the normal pool
+  const unpaired = [...trioPrefQueue, ...normalPref];
+
+  // Pair remaining users in twos, avoiding recent pairings when possible
   while (unpaired.length >= 2) {
     const user1 = unpaired.shift()!;
     let paired = false;
@@ -178,9 +191,18 @@ export const createPairings = (
     }
   }
 
-  // If there's one person left, add them to the last group
+  // If there's one person left, prefer adding them to a pairing that already
+  // contains a trio-preferring user; otherwise add to the last group.
   if (unpaired.length === 1 && pairings.length > 0) {
-    pairings[pairings.length - 1].push(unpaired[0]);
+    const leftover = unpaired[0];
+    const trioPrefPairingIndex = pairings.findIndex((p) =>
+      p.some((id) => trioPrefUserIds.has(id)),
+    );
+    if (trioPrefPairingIndex !== -1) {
+      pairings[trioPrefPairingIndex].push(leftover);
+    } else {
+      pairings[pairings.length - 1].push(leftover);
+    }
   }
 
   return pairings;
@@ -359,6 +381,15 @@ export const notifyPairing = async (
               action_id: "coffee_chat_opt_out",
               value: channelId,
             },
+            {
+              type: "button",
+              text: {
+                type: "plain_text",
+                text: "👥 Prefer 3-Person Chat",
+              },
+              action_id: "coffee_chat_trio_toggle",
+              value: channelId,
+            },
           ],
         },
       ],
@@ -441,8 +472,16 @@ export const createCoffeeChatsForChannel = async (
     // Get recent pairings to avoid repeating them
     const recentPairs = await getRecentPairings(config.channelId);
 
+    // Get trio-preferring users for this channel
+    const trioPrefs = await CoffeeChatUserPreferenceModel.find({
+      channelId: config.channelId,
+      userId: { $in: members },
+      preferTrioPairing: true,
+    });
+    const trioPrefUserIds = new Set(trioPrefs.map((p) => p.userId));
+
     // Create optimal pairings
-    const pairings = createPairings(members, recentPairs);
+    const pairings = createPairings(members, recentPairs, trioPrefUserIds);
 
     logWithTime(
       `Created ${pairings.length} pairing(s) for ${config.channelName}`,
@@ -975,6 +1014,40 @@ export const skipNextPairing = async (
   );
 
   logWithTime(`User ${userId} will skip next pairing in channel ${channelId}`);
+};
+
+/**
+ * Sets a user's trio pairing preference for a specific channel
+ */
+export const setTrioPairingPreference = async (
+  userId: string,
+  channelId: string,
+  preferTrio: boolean,
+): Promise<void> => {
+  await CoffeeChatUserPreferenceModel.findOneAndUpdate(
+    { userId, channelId },
+    { preferTrioPairing: preferTrio },
+    { upsert: true },
+  );
+
+  logWithTime(
+    `User ${userId} set trio pairing preference to ${preferTrio} in channel ${channelId}`,
+  );
+};
+
+/**
+ * Gets a user's trio pairing preference for a specific channel
+ */
+export const getTrioPairingPreference = async (
+  userId: string,
+  channelId: string,
+): Promise<boolean> => {
+  const preference = await CoffeeChatUserPreferenceModel.findOne({
+    userId,
+    channelId,
+  });
+
+  return preference?.preferTrioPairing ?? false;
 };
 
 /**

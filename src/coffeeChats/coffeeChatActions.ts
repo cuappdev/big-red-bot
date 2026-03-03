@@ -4,6 +4,8 @@ import {
   optInToCoffeeChats,
   confirmMeetup,
   skipNextPairing,
+  setTrioPairingPreference,
+  getTrioPairingPreference,
 } from "./coffeeChatService";
 
 export function registerCoffeeChatActions(slackbot: App) {
@@ -211,6 +213,61 @@ export function registerCoffeeChatActions(slackbot: App) {
       } catch (error) {
         await respond({
           text: `❌ Error skipping next pairing: ${error}`,
+          replace_original: false,
+        });
+      }
+    },
+  );
+
+  // Action handler for toggling the 3-person (trio) pairing preference
+  slackbot.action(
+    "coffee_chat_trio_toggle",
+    async ({ ack, body, respond }: SlackActionMiddlewareArgs<BlockAction>) => {
+      await ack();
+
+      try {
+        const userId = body.user.id;
+        const action = body.actions[0];
+        const channelId = ("value" in action ? action.value : "") as string;
+
+        const currentPref = await getTrioPairingPreference(userId, channelId);
+        const newPref = !currentPref;
+        await setTrioPairingPreference(userId, channelId, newPref);
+
+        await respond({
+          text: newPref
+            ? `You've opted in for 3-person coffee chats!`
+            : `You've switched back to 1-on-1 pairings.`,
+          blocks: [
+            {
+              type: "section",
+              text: {
+                type: "mrkdwn",
+                text: newPref
+                  ? `✅ You've opted in for *3-person coffee chats*! When possible, you'll be grouped with two others.`
+                  : `✅ You've switched back to *1-on-1 pairings*. You'll be paired with one other person each round.`,
+              },
+            },
+            {
+              type: "actions",
+              elements: [
+                {
+                  type: "button",
+                  text: {
+                    type: "plain_text",
+                    text: newPref ? "👫 Switch to 1-on-1" : "👥 Prefer 3-Person Chat",
+                  },
+                  action_id: "coffee_chat_trio_toggle",
+                  value: channelId,
+                },
+              ],
+            },
+          ],
+          replace_original: true,
+        });
+      } catch (error) {
+        await respond({
+          text: `❌ Error updating 3-person pairing preference: ${error}`,
           replace_original: false,
         });
       }

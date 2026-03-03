@@ -63,6 +63,9 @@ class CoffeeChatUserPreference {
 
   @prop({ default: false })
   skipNextPairing!: boolean;
+
+  @prop({ default: false })
+  preferTrioPairing!: boolean;
 }
 
 const CoffeeChatPairingModel = getModelForClass(CoffeeChatPairing);
