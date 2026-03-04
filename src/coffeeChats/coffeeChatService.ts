@@ -670,6 +670,41 @@ export const reportChannelStats = async (
         ? ((uniqueParticipants.size / totalMembers) * 100).toFixed(2)
         : "0.0";
 
+    // Build leaderboard: count confirmed meetups per user across ALL time for this channel
+    const allTimePairings = await CoffeeChatPairingModel.find({
+      channelId: config.channelId,
+      meetupConfirmed: true,
+    });
+
+    const meetupCountByUser = new Map<string, number>();
+    for (const pairing of allTimePairings) {
+      for (const userId of pairing.userIds) {
+        meetupCountByUser.set(userId, (meetupCountByUser.get(userId) ?? 0) + 1);
+      }
+    }
+
+    // Sort users by meetup count descending and take top 10
+    const leaderboard = [...meetupCountByUser.entries()]
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 10);
+
+    const MEDALS = ["🥇", "🥈", "🥉"];
+    const leaderboardLines = leaderboard.map(([userId, count], index) => {
+      const medal = MEDALS[index] ?? `${index + 1}.`;
+      return `${medal} <@${userId}> — *${count}* meetup${count !== 1 ? "s" : ""}`;
+    });
+
+    const leaderboardBlock =
+      leaderboardLines.length > 0
+        ? {
+            type: "section" as const,
+            text: {
+              type: "mrkdwn" as const,
+              text: `*🏆 All-Time Meetup Leaderboard:*\n${leaderboardLines.join("\n")}`,
+            },
+          }
+        : null;
+
     // Post stats to channel
     await slackbot.client.chat.postMessage({
       channel: config.channelId,
@@ -704,6 +739,7 @@ export const reportChannelStats = async (
             },
           ],
         },
+        ...(leaderboardBlock ? [leaderboardBlock] : []),
         {
           type: "context",
           elements: [

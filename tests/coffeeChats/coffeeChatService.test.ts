@@ -1074,6 +1074,308 @@ describe("coffeeChatService", () => {
 
       expect(mockPostMessage).not.toHaveBeenCalled();
     });
+
+    it("should include a leaderboard block when there are all-time confirmed meetups", async () => {
+      const mockChannelId = "C12345";
+      const mockChannelName = "coffee-chats";
+      const mockPairingFrequencyDays = 14;
+
+      await new CoffeeChatConfigModel({
+        channelId: mockChannelId,
+        channelName: mockChannelName,
+        isActive: true,
+        pairingFrequencyDays: mockPairingFrequencyDays,
+      }).save();
+
+      // Pairing within the reporting window (counts toward period stats)
+      await new CoffeeChatPairingModel({
+        channelId: mockChannelId,
+        userIds: ["U1", "U2"],
+        createdAt: moment()
+          .tz("America/New_York")
+          .subtract(10, "days")
+          .toDate(),
+        dueDate: moment().tz("America/New_York").subtract(9, "days").toDate(),
+        meetupConfirmed: true,
+      }).save();
+
+      // Additional all-time confirmed pairings to build up the leaderboard
+      await new CoffeeChatPairingModel({
+        channelId: mockChannelId,
+        userIds: ["U1", "U3"],
+        createdAt: moment()
+          .tz("America/New_York")
+          .subtract(10, "days")
+          .toDate(),
+        dueDate: moment().tz("America/New_York").subtract(9, "days").toDate(),
+        meetupConfirmed: true,
+      }).save();
+
+      await coffeeChatService.reportStats();
+
+      const mockPostMessage =
+        jest.requireMock("../../src/slackbot").default.client.chat.postMessage;
+
+      expect(mockPostMessage).toHaveBeenCalledTimes(1);
+
+      const blocks: Array<{
+        type: string;
+        text?: { type: string; text: string };
+      }> = mockPostMessage.mock.calls[0][0].blocks;
+
+      // Leaderboard block must be present
+      const leaderboardBlock = blocks.find(
+        (b) =>
+          b.type === "section" &&
+          b.text?.text.includes("All-Time Meetup Leaderboard"),
+      );
+      expect(leaderboardBlock).toBeDefined();
+
+      // U1 appears in 2 confirmed pairings and must be ranked first
+      expect(leaderboardBlock?.text?.text).toContain("<@U1>");
+      expect(leaderboardBlock?.text?.text).toContain("🥇");
+    });
+
+    it("should rank leaderboard entries by meetup count descending", async () => {
+      const mockChannelId = "C12345";
+      const mockChannelName = "coffee-chats";
+      const mockPairingFrequencyDays = 14;
+
+      await new CoffeeChatConfigModel({
+        channelId: mockChannelId,
+        channelName: mockChannelName,
+        isActive: true,
+        pairingFrequencyDays: mockPairingFrequencyDays,
+      }).save();
+
+      const recentDueDate = moment()
+        .tz("America/New_York")
+        .subtract(1, "days")
+        .toDate();
+      const recentCreatedAt = moment()
+        .tz("America/New_York")
+        .subtract(10, "days")
+        .toDate();
+
+      // U_A: 3 meetups, U_B: 2 meetups, U_C: 1 meetup
+      for (let i = 0; i < 3; i++) {
+        await new CoffeeChatPairingModel({
+          channelId: mockChannelId,
+          userIds: ["U_A", `U_OTHER_${i}`],
+          createdAt: recentCreatedAt,
+          dueDate: recentDueDate,
+          meetupConfirmed: true,
+        }).save();
+      }
+      for (let i = 0; i < 2; i++) {
+        await new CoffeeChatPairingModel({
+          channelId: mockChannelId,
+          userIds: ["U_B", `U_EXTRA_${i}`],
+          createdAt: recentCreatedAt,
+          dueDate: recentDueDate,
+          meetupConfirmed: true,
+        }).save();
+      }
+      await new CoffeeChatPairingModel({
+        channelId: mockChannelId,
+        userIds: ["U_C", "U_LAST"],
+        createdAt: recentCreatedAt,
+        dueDate: recentDueDate,
+        meetupConfirmed: true,
+      }).save();
+
+      await coffeeChatService.reportStats();
+
+      const mockPostMessage =
+        jest.requireMock("../../src/slackbot").default.client.chat.postMessage;
+
+      const blocks: Array<{
+        type: string;
+        text?: { type: string; text: string };
+      }> = mockPostMessage.mock.calls[0][0].blocks;
+
+      const leaderboardBlock = blocks.find(
+        (b) =>
+          b.type === "section" &&
+          b.text?.text.includes("All-Time Meetup Leaderboard"),
+      );
+
+      expect(leaderboardBlock).toBeDefined();
+
+      const text = leaderboardBlock!.text!.text;
+
+      // U_A should appear before U_B, which should appear before U_C
+      expect(text.indexOf("<@U_A>")).toBeLessThan(text.indexOf("<@U_B>"));
+      expect(text.indexOf("<@U_B>")).toBeLessThan(text.indexOf("<@U_C>"));
+
+      // Gold medal goes to U_A
+      const aLine = text
+        .split("\n")
+        .find((line: string) => line.includes("<@U_A>"));
+      expect(aLine).toContain("🥇");
+
+      // Silver medal goes to U_B
+      const bLine = text
+        .split("\n")
+        .find((line: string) => line.includes("<@U_B>"));
+      expect(bLine).toContain("🥈");
+    });
+
+    it("should cap the leaderboard at 10 entries", async () => {
+      const mockChannelId = "C12345";
+      const mockChannelName = "coffee-chats";
+      const mockPairingFrequencyDays = 14;
+
+      await new CoffeeChatConfigModel({
+        channelId: mockChannelId,
+        channelName: mockChannelName,
+        isActive: true,
+        pairingFrequencyDays: mockPairingFrequencyDays,
+      }).save();
+
+      const recentDueDate = moment()
+        .tz("America/New_York")
+        .subtract(1, "days")
+        .toDate();
+      const recentCreatedAt = moment()
+        .tz("America/New_York")
+        .subtract(10, "days")
+        .toDate();
+
+      // Create 12 distinct users, each with 1 confirmed meetup
+      for (let i = 1; i <= 12; i++) {
+        await new CoffeeChatPairingModel({
+          channelId: mockChannelId,
+          userIds: [`U_TOP${i}`, `U_PARTNER${i}`],
+          createdAt: recentCreatedAt,
+          dueDate: recentDueDate,
+          meetupConfirmed: true,
+        }).save();
+      }
+
+      await coffeeChatService.reportStats();
+
+      const mockPostMessage =
+        jest.requireMock("../../src/slackbot").default.client.chat.postMessage;
+
+      const blocks: Array<{
+        type: string;
+        text?: { type: string; text: string };
+      }> = mockPostMessage.mock.calls[0][0].blocks;
+
+      const leaderboardBlock = blocks.find(
+        (b) =>
+          b.type === "section" &&
+          b.text?.text.includes("All-Time Meetup Leaderboard"),
+      );
+
+      expect(leaderboardBlock).toBeDefined();
+
+      // Only 10 lines after the header line
+      const lines = leaderboardBlock!
+        .text!.text.split("\n")
+        .filter((line: string) => line.includes("<@"));
+      expect(lines.length).toBe(10);
+    });
+
+    it("should omit the leaderboard block when there are no all-time confirmed meetups", async () => {
+      const mockChannelId = "C12345";
+      const mockChannelName = "coffee-chats";
+      const mockPairingFrequencyDays = 14;
+
+      await new CoffeeChatConfigModel({
+        channelId: mockChannelId,
+        channelName: mockChannelName,
+        isActive: true,
+        pairingFrequencyDays: mockPairingFrequencyDays,
+      }).save();
+
+      // One period pairing that is NOT confirmed — still triggers the stats post
+      await new CoffeeChatPairingModel({
+        channelId: mockChannelId,
+        userIds: ["U1", "U2"],
+        createdAt: moment()
+          .tz("America/New_York")
+          .subtract(10, "days")
+          .toDate(),
+        dueDate: moment().tz("America/New_York").subtract(9, "days").toDate(),
+        meetupConfirmed: false,
+      }).save();
+
+      await coffeeChatService.reportStats();
+
+      const mockPostMessage =
+        jest.requireMock("../../src/slackbot").default.client.chat.postMessage;
+
+      expect(mockPostMessage).toHaveBeenCalledTimes(1);
+
+      const blocks: Array<{
+        type: string;
+        text?: { type: string; text: string };
+      }> = mockPostMessage.mock.calls[0][0].blocks;
+
+      const leaderboardBlock = blocks.find(
+        (b) =>
+          b.type === "section" &&
+          b.text?.text.includes("All-Time Meetup Leaderboard"),
+      );
+      expect(leaderboardBlock).toBeUndefined();
+    });
+
+    it("should not include meetups from other channels in the leaderboard", async () => {
+      const mockChannelId = "C12345";
+      const otherChannelId = "C_OTHER";
+      const mockPairingFrequencyDays = 14;
+
+      await new CoffeeChatConfigModel({
+        channelId: mockChannelId,
+        channelName: "coffee-chats",
+        isActive: true,
+        pairingFrequencyDays: mockPairingFrequencyDays,
+      }).save();
+
+      // Pairing in the target channel
+      await new CoffeeChatPairingModel({
+        channelId: mockChannelId,
+        userIds: ["U1", "U2"],
+        createdAt: moment()
+          .tz("America/New_York")
+          .subtract(10, "days")
+          .toDate(),
+        dueDate: moment().tz("America/New_York").subtract(9, "days").toDate(),
+        meetupConfirmed: true,
+      }).save();
+
+      // Pairing in a different channel — U_OTHER should NOT appear in leaderboard
+      await new CoffeeChatPairingModel({
+        channelId: otherChannelId,
+        userIds: ["U_OTHER", "U_OTHER2"],
+        createdAt: moment()
+          .tz("America/New_York")
+          .subtract(10, "days")
+          .toDate(),
+        dueDate: moment().tz("America/New_York").subtract(9, "days").toDate(),
+        meetupConfirmed: true,
+      }).save();
+
+      await coffeeChatService.reportStats();
+
+      const mockPostMessage =
+        jest.requireMock("../../src/slackbot").default.client.chat.postMessage;
+
+      const blocks: Array<{
+        type: string;
+        text?: { type: string; text: string };
+      }> = mockPostMessage.mock.calls[0][0].blocks;
+
+      const leaderboardBlock = blocks.find(
+        (b) =>
+          b.type === "section" &&
+          b.text?.text.includes("All-Time Meetup Leaderboard"),
+      );
+
+      expect(leaderboardBlock?.text?.text).not.toContain("<@U_OTHER>");
+    });
   });
 
   it("should not report stats if there is a previous pairing in a round long ago", async () => {
