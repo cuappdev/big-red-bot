@@ -24,24 +24,32 @@ const initializeCoffeeChatServices = async () => {
   registerCoffeeChatActions(slackbot);
   registerCoffeeChatCommands(slackbot);
 
-  // Schedule all coffee chat tasks to run daily at 9am
-  cron.schedule("0 9 * * *", async () => {
-    logWithTime("Running scheduled coffee chat tasks at 9am...");
-    // Send previous round stats
-    await reportStats();
+  // Schedule all coffee chat tasks to run daily at 9am ET
+  cron.schedule(
+    "0 9 * * *",
+    async () => {
+      logWithTime("Running scheduled coffee chat tasks at 9am...");
+      // Send previous round stats
+      await reportStats();
 
-    // Create new pairings for the next next round
-    await createNewCoffeeChatRounds();
+      // Create new pairings for the next next round
+      await createNewCoffeeChatRounds();
 
-    logWithTime("Completed scheduled coffee chat tasks.");
-  });
+      logWithTime("Completed scheduled coffee chat tasks.");
+    },
+    { timezone: "America/New_York" },
+  );
 
-  // Schedule midway reminders to run daily at 4pm (task does not run until midway through the pairing cycle, so won't send any reminders until then)
-  cron.schedule("0 16 * * *", async () => {
-    logWithTime("Running midway reminder task at 4pm...");
-    await sendMidwayReminders();
-    logWithTime("Completed midway reminder task.");
-  });
+  // Schedule midway reminders to run daily at 4pm ET (task does not run until midway through the pairing cycle, so won't send any reminders until then)
+  cron.schedule(
+    "0 16 * * *",
+    async () => {
+      logWithTime("Running midway reminder task at 4pm...");
+      await sendMidwayReminders();
+      logWithTime("Completed midway reminder task.");
+    },
+    { timezone: "America/New_York" },
+  );
 
   logWithTime("✅ Coffee chat tasks scheduled to run daily at 9am");
   logWithTime("✅ Midway reminders scheduled to run daily at 4pm");

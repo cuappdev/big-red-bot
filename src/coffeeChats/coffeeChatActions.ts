@@ -255,7 +255,9 @@ export function registerCoffeeChatActions(slackbot: App) {
                   type: "button",
                   text: {
                     type: "plain_text",
-                    text: newPref ? "👫 Switch to 1-on-1" : "👥 Prefer 3-Person Chat",
+                    text: newPref
+                      ? "👫 Switch to 1-on-1"
+                      : "👥 Prefer 3-Person Chat",
                   },
                   action_id: "coffee_chat_trio_toggle",
                   value: channelId,

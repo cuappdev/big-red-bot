@@ -191,18 +191,33 @@ export const createPairings = (
     }
   }
 
-  // If there's one person left, prefer adding them to a pairing that already
-  // contains a trio-preferring user; otherwise add to the last group.
+  // If there's one person left, add them to an existing group to form a trio.
+  // Priority order:
+  //   1. A pair (size 2) that contains a trio-preferring user
+  //   2. Any pair (size 2)
+  //   3. A trio (size 3) that contains a trio-preferring user (last resort)
+  //   4. The last group (absolute last resort — avoids creating groups of 4+ when possible)
   if (unpaired.length === 1 && pairings.length > 0) {
     const leftover = unpaired[0];
-    const trioPrefPairingIndex = pairings.findIndex((p) =>
-      p.some((id) => trioPrefUserIds.has(id)),
+
+    const trioPrefPairIndex = pairings.findIndex(
+      (p) => p.length === 2 && p.some((id) => trioPrefUserIds.has(id)),
     );
-    if (trioPrefPairingIndex !== -1) {
-      pairings[trioPrefPairingIndex].push(leftover);
-    } else {
-      pairings[pairings.length - 1].push(leftover);
-    }
+    const anyPairIndex = pairings.findIndex((p) => p.length === 2);
+    const trioPrefTrioIndex = pairings.findIndex(
+      (p) => p.length === 3 && p.some((id) => trioPrefUserIds.has(id)),
+    );
+
+    const targetIndex =
+      trioPrefPairIndex !== -1
+        ? trioPrefPairIndex
+        : anyPairIndex !== -1
+          ? anyPairIndex
+          : trioPrefTrioIndex !== -1
+            ? trioPrefTrioIndex
+            : pairings.length - 1;
+
+    pairings[targetIndex].push(leftover);
   }
 
   return pairings;
@@ -905,11 +920,6 @@ export const startCoffeeChats = async (channelId: string): Promise<void> => {
     return;
   }
 
-  if (!config.isActive) {
-    await CoffeeChatConfigModel.updateOne({ channelId }, { isActive: true });
-    logWithTime(`Re-activated coffee chats for channel ${channelId}`);
-  }
-
   const now = moment().tz("America/New_York").startOf("day").toDate();
   const nextPairingDate = moment()
     .tz("America/New_York")
@@ -917,15 +927,28 @@ export const startCoffeeChats = async (channelId: string): Promise<void> => {
     .startOf("day")
     .toDate();
 
-  await CoffeeChatConfigModel.updateOne(
+  // Fetch the fully-updated config in one atomic operation so that
+  // createCoffeeChatsForChannel never receives a stale in-memory object.
+  const updatedConfig = await CoffeeChatConfigModel.findOneAndUpdate(
     { channelId },
     {
+      isActive: true,
       lastPairingDate: now,
       nextPairingDate,
     },
+    { new: true },
   );
 
-  await createCoffeeChatsForChannel(config);
+  if (!updatedConfig) {
+    logWithTime(`Failed to update config for channel ${channelId}`);
+    return;
+  }
+
+  if (!config.isActive) {
+    logWithTime(`Re-activated coffee chats for channel ${channelId}`);
+  }
+
+  await createCoffeeChatsForChannel(updatedConfig);
 
   logWithTime(`✅ Started and created coffee chats for channel ${channelId}`);
 };
