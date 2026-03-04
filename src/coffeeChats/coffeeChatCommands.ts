@@ -325,10 +325,19 @@ export function registerCoffeeChatCommands(slackbot: App) {
     try {
       const userId = command.user_id;
 
-      // Find all pairings that include this user across all channels
+      // Limit to the 25 most recent pairings to stay within Slack's 3000-char
+      // section block text limit. Fetch one extra to detect truncation.
+      const HISTORY_LIMIT = 25;
       const pairings = await CoffeeChatPairingModel.find({
         userIds: userId,
-      }).sort({ createdAt: -1 });
+      })
+        .sort({ createdAt: -1 })
+        .limit(HISTORY_LIMIT + 1);
+
+      const isTruncated = pairings.length > HISTORY_LIMIT;
+      const displayedPairings = isTruncated
+        ? pairings.slice(0, HISTORY_LIMIT)
+        : pairings;
 
       if (pairings.length === 0) {
         await slackbot.client.chat.postEphemeral({
@@ -350,7 +359,7 @@ export function registerCoffeeChatCommands(slackbot: App) {
 
       // Build the history message grouped by channel
       const pairingsByChannel = new Map<string, typeof pairings>();
-      for (const pairing of pairings) {
+      for (const pairing of displayedPairings) {
         if (!pairingsByChannel.has(pairing.channelId)) {
           pairingsByChannel.set(pairing.channelId, []);
         }
@@ -376,6 +385,8 @@ export function registerCoffeeChatCommands(slackbot: App) {
           let status = "";
           if (pairing.meetupConfirmed) {
             status = "✅ Met";
+          } else if (moment(pairing.dueDate).tz("America/New_York").isAfter(moment().tz("America/New_York"))) {
+            status = "⏳ Pending";
           } else {
             status = "❌ Did not meet";
           }
@@ -401,7 +412,7 @@ export function registerCoffeeChatCommands(slackbot: App) {
             type: "section",
             text: {
               type: "mrkdwn",
-              text: `You've been paired *${pairings.length} time${pairings.length !== 1 ? "s" : ""}* across all channels:${historyLines.join("\n")}`,
+              text: `You've been paired *${pairings.length > HISTORY_LIMIT ? `${HISTORY_LIMIT}+ ` : pairings.length} time${pairings.length !== 1 ? "s" : ""}* across all channels (showing ${displayedPairings.length} most recent):${historyLines.join("\n")}${isTruncated ? "\n\n_Only the 25 most recent pairings are shown._" : ""}`,
             },
           },
           {
@@ -409,7 +420,7 @@ export function registerCoffeeChatCommands(slackbot: App) {
             elements: [
               {
                 type: "mrkdwn",
-                text: "✅ Met • ❌ Did not meet",
+                text: "✅ Met • ⏳ Pending • ❌ Did not meet",
               },
             ],
           },

@@ -101,16 +101,31 @@ export const getChannelMembers = async (
     cursor = result.response_metadata?.next_cursor || undefined;
   } while (cursor);
 
-  // Filter out bots
-  const memberDetails = await Promise.all(
-    allMemberIds.map(async (userId) => {
-      const userInfo = await slackbot.client.users.info({ user: userId });
-      return {
-        id: userId,
-        isBot: userInfo.user?.is_bot || false,
-      };
-    }),
-  );
+  // Filter out bots, batching users.info calls to avoid hitting Slack rate limits.
+  // Slack's users.info is Tier 4 (~100 req/min); processing in chunks of 10
+  // with a small delay between chunks keeps us well within that limit.
+  const CHUNK_SIZE = 10;
+  const CHUNK_DELAY_MS = 500;
+  const memberDetails: { id: string; isBot: boolean }[] = [];
+
+  for (let i = 0; i < allMemberIds.length; i += CHUNK_SIZE) {
+    const chunk = allMemberIds.slice(i, i + CHUNK_SIZE);
+    const chunkResults = await Promise.all(
+      chunk.map(async (userId) => {
+        const userInfo = await slackbot.client.users.info({ user: userId });
+        return {
+          id: userId,
+          isBot: userInfo.user?.is_bot || false,
+        };
+      }),
+    );
+    memberDetails.push(...chunkResults);
+
+    // Delay between chunks (skip delay after the last chunk)
+    if (i + CHUNK_SIZE < allMemberIds.length) {
+      await new Promise((resolve) => setTimeout(resolve, CHUNK_DELAY_MS));
+    }
+  }
 
   const nonBotMembers = memberDetails.filter((m) => !m.isBot).map((m) => m.id);
 
