@@ -50,7 +50,7 @@ export function registerCoffeeChatActions(slackbot: App) {
               ],
             },
           ],
-          replace_original: true,
+          replace_original: false,
         });
       } catch (error) {
         await respond({
@@ -109,7 +109,7 @@ export function registerCoffeeChatActions(slackbot: App) {
               ],
             },
           ],
-          replace_original: true,
+          replace_original: false,
         });
       } catch (error) {
         await respond({
@@ -167,34 +167,11 @@ export function registerCoffeeChatActions(slackbot: App) {
           },
         ];
 
-        // Update the original message for everyone in the DM using chat.update,
-        // so both (or all) participants see the buttons replaced with the confirmation.
-        const channelId = body.channel?.id;
-        const messageTs = body.message?.ts;
-        const originalBlocks: KnownBlock[] =
-          (body.message?.blocks as KnownBlock[]) ?? [];
-
-        // Keep all original blocks except the actions block, then append confirmation
-        const updatedBlocks: KnownBlock[] = [
-          ...originalBlocks.filter((b) => b.type !== "actions"),
-          ...confirmationSections,
-        ];
-
-        if (channelId && messageTs) {
-          await slackbot.client.chat.update({
-            channel: channelId,
-            ts: messageTs,
-            text: `Thanks for confirming! 🎉`,
-            blocks: updatedBlocks,
-          });
-        } else {
-          // Fallback: reply only to the person who clicked
-          await respond({
-            text: `Thanks for confirming! 🎉`,
-            blocks: updatedBlocks,
-            replace_original: true,
-          });
-        }
+        await respond({
+          text: `Thanks for confirming! 🎉`,
+          blocks: confirmationSections,
+          replace_original: false,
+        });
       } catch (error) {
         await respond({
           text: `❌ Error confirming meetup: ${error}`,
@@ -253,7 +230,7 @@ export function registerCoffeeChatActions(slackbot: App) {
               ],
             },
           ],
-          replace_original: true,
+          replace_original: false,
         });
       } catch (error) {
         await respond({
@@ -310,7 +287,7 @@ export function registerCoffeeChatActions(slackbot: App) {
               ],
             },
           ],
-          replace_original: true,
+          replace_original: false,
         });
       } catch (error) {
         await respond({
