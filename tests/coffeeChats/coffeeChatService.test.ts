@@ -977,7 +977,7 @@ describe("coffeeChatService", () => {
       expect(mockPostMessage).toHaveBeenCalledWith(
         expect.objectContaining({
           channel: mockChannelId,
-          text: "Coffee Chat Stats",
+          text: expect.stringContaining("Coffee Chat Stats"),
         }),
       );
 
@@ -1140,9 +1140,7 @@ describe("coffeeChatService", () => {
       expect(mockPostMessage).toHaveBeenCalledWith(
         expect.objectContaining({
           channel: "D12345",
-          text: expect.stringContaining(
-            `Just a friendly reminder about your coffee chat`,
-          ),
+          text: expect.stringContaining("left to meet up"),
         }),
       );
 
@@ -1358,18 +1356,14 @@ describe("coffeeChatService", () => {
     expect(mockPostMessage).toHaveBeenCalledWith(
       expect.objectContaining({
         channel: "D12345",
-        text: expect.stringContaining(
-          `Just a friendly reminder about your coffee chat`,
-        ),
+        text: expect.stringContaining("left to meet up"),
       }),
     );
 
     expect(mockPostMessage).toHaveBeenCalledWith(
       expect.objectContaining({
         channel: "D67890",
-        text: expect.stringContaining(
-          `Just a friendly reminder about your coffee chat`,
-        ),
+        text: expect.stringContaining("left to meet up"),
       }),
     );
 

@@ -10,6 +10,7 @@ import {
 } from "./coffeeChats/coffeeChatService";
 import { registerCoffeeChatCommands } from "./coffeeChats/coffeeChatCommands";
 import { registerCoffeeChatActions } from "./coffeeChats/coffeeChatActions";
+import { registerWelcomeHandler } from "./coffeeChats/coffeeChatWelcome";
 
 export const SEMESTER = "sp24";
 export const DEFAULT_PAIRING_FREQUENCY_DAYS = 14; // Default to every 2 weeks
@@ -23,6 +24,7 @@ const initializeCoffeeChatServices = async () => {
   // Register coffee chat actions and commands
   registerCoffeeChatActions(slackbot);
   registerCoffeeChatCommands(slackbot);
+  registerWelcomeHandler(slackbot);
 
   // Schedule all coffee chat tasks to run daily at 9am ET
   cron.schedule(

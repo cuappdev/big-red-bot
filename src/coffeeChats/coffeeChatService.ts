@@ -318,7 +318,7 @@ export const notifyPairing = async (
     // Send a message to the group DM with interactive buttons
     const messageResult = await slackbot.client.chat.postMessage({
       channel: conversation.channel.id!,
-      text: `Hey ${userMentions}! You've been paired for a coffee chat. ☕`,
+      text: `☕ New coffee chat pairing: ${userMentions}! Suggested activity: ${activity}. Meet by ${deadline.format("MMMM Do")}.`,
       blocks: [
         {
           type: "section",
@@ -555,7 +555,7 @@ export const createCoffeeChatsForChannel = async (
     // Send announcement to the channel
     await slackbot.client.chat.postMessage({
       channel: config.channelId,
-      text: "Coffee chat pairings have been created!",
+      text: `🎉 ${pairings.length} new coffee chat pairing${pairings.length !== 1 ? "s" : ""} created! Next round on ${nextPairingDate.format("MMMM Do")}.`,
       blocks: [
         {
           type: "section",
@@ -666,7 +666,7 @@ export const reportChannelStats = async (
     // Post stats to channel
     await slackbot.client.chat.postMessage({
       channel: config.channelId,
-      text: "Coffee Chat Stats",
+      text: `☕ Coffee Chat Stats: ${totalCompletedPairings}/${totalPairings} meetups completed — ${participationRate}% participation rate over the last ${config.pairingFrequencyDays} day${config.pairingFrequencyDays !== 1 ? "s" : ""}.`,
       blocks: [
         {
           type: "header",
@@ -787,7 +787,7 @@ export const sendMidwayReminders = async (): Promise<void> => {
           // Send reminder to the group DM
           await slackbot.client.chat.postMessage({
             channel: pairing.conversationId,
-            text: `Hey ${userMentions}! Just a friendly reminder about your coffee chat. ☕`,
+            text: `⏰ Coffee chat reminder for ${userMentions}: you have ${daysRemaining} ${daysRemaining === 1 ? "day" : "days"} left to meet up! Click "We Met!" once you do. ☕`,
             blocks: [
               {
                 type: "section",
