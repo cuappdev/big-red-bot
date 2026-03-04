@@ -18,11 +18,10 @@ import { DEFAULT_PAIRING_FREQUENCY_DAYS } from "../app";
 const isUserAdmin = async (slackbot: App, userId: string): Promise<boolean> => {
   try {
     const userInfo = await slackbot.client.users.info({ user: userId });
-    return (
+    return !!(
       userInfo.user?.is_admin ||
       userInfo.user?.is_owner ||
-      userInfo.user?.is_primary_owner ||
-      false
+      userInfo.user?.is_primary_owner
     );
   } catch {
     return false;

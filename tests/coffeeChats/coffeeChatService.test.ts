@@ -989,8 +989,7 @@ describe("coffeeChatService", () => {
 
       const commandsBlock = blocks.find(
         (b) =>
-          b.type === "section" &&
-          b.text?.text.includes("Available Commands"),
+          b.type === "section" && b.text?.text.includes("Available Commands"),
       );
       expect(commandsBlock).toBeDefined();
       expect(commandsBlock?.text?.text).toContain("/coffee-chat-status");

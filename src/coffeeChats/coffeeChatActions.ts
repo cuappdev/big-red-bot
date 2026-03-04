@@ -8,6 +8,7 @@ import {
   setTrioPairingPreference,
   getTrioPairingPreference,
 } from "./coffeeChatService";
+import { CoffeeChatPairingModel } from "./coffeeChatModels";
 
 export function registerCoffeeChatActions(slackbot: App) {
   // Action handler for opting out of coffee chats
@@ -126,8 +127,26 @@ export function registerCoffeeChatActions(slackbot: App) {
       await ack();
 
       try {
+        const userId = body.user.id;
         const action = body.actions[0];
         const pairingId = ("value" in action ? action.value : "") as string;
+
+        // Verify the user clicking the button is actually part of this pairing
+        const pairing = await CoffeeChatPairingModel.findById(pairingId);
+        if (!pairing) {
+          await respond({
+            text: `❌ Pairing not found.`,
+            replace_original: false,
+          });
+          return;
+        }
+        if (!pairing.userIds.includes(userId)) {
+          await respond({
+            text: `❌ You can only confirm meetups that you are part of.`,
+            replace_original: false,
+          });
+          return;
+        }
 
         await confirmMeetup(pairingId);
 

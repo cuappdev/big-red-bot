@@ -82,17 +82,28 @@ const getRandomActivity = (): string => {
 export const getChannelMembers = async (
   channelId: string,
 ): Promise<string[]> => {
-  const result = await slackbot.client.conversations.members({
-    channel: channelId,
-  });
+  const allMemberIds: string[] = [];
+  let cursor: string | undefined = undefined;
 
-  if (!result.ok || !result.members) {
-    throw new Error(`Failed to get members for channel ${channelId}`);
-  }
+  // Paginate through all members using Slack's cursor-based pagination
+  do {
+    const result = await slackbot.client.conversations.members({
+      channel: channelId,
+      limit: 200,
+      ...(cursor ? { cursor } : {}),
+    });
+
+    if (!result.ok || !result.members) {
+      throw new Error(`Failed to get members for channel ${channelId}`);
+    }
+
+    allMemberIds.push(...result.members);
+    cursor = result.response_metadata?.next_cursor || undefined;
+  } while (cursor);
 
   // Filter out bots
   const memberDetails = await Promise.all(
-    result.members.map(async (userId) => {
+    allMemberIds.map(async (userId) => {
       const userInfo = await slackbot.client.users.info({ user: userId });
       return {
         id: userId,
@@ -481,6 +492,8 @@ export const createCoffeeChatsForChannel = async (
       logWithTime(
         `Not enough members in ${config.channelName} for coffee chats (need at least 2)`,
       );
+      // Still clear skip flags so users who skipped this round aren't permanently excluded
+      await clearSkipFlags(config.channelId);
       return;
     }
 
