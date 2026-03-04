@@ -130,26 +130,43 @@ export function registerCoffeeChatActions(slackbot: App) {
 
         await confirmMeetup(pairingId);
 
-        await respond({
-          text: `Thanks for confirming! 🎉`,
-          blocks: [
-            {
-              type: "section",
-              text: {
-                type: "mrkdwn",
-                text: `✅ Awesome! Thanks for confirming your meetup. We hope you had a great time! 🎉`,
-              },
+        const confirmedBlocks = [
+          {
+            type: "section",
+            text: {
+              type: "mrkdwn",
+              text: `✅ Awesome! Thanks for confirming your meetup. We hope you had a great time! 🎉`,
             },
-            {
-              type: "section",
-              text: {
-                type: "mrkdwn",
-                text: `📸 Don't forget to share any photos from your meetup in the channel to celebrate!`,
-              },
+          },
+          {
+            type: "section",
+            text: {
+              type: "mrkdwn",
+              text: `📸 Don't forget to share any photos from your meetup in the channel to celebrate!`,
             },
-          ],
-          replace_original: false,
-        });
+          },
+        ];
+
+        // Update the original message for everyone in the DM using chat.update,
+        // so both (or all) participants see the buttons replaced with the confirmation.
+        const channelId = body.channel?.id;
+        const messageTs = body.message?.ts;
+
+        if (channelId && messageTs) {
+          await slackbot.client.chat.update({
+            channel: channelId,
+            ts: messageTs,
+            text: `Thanks for confirming! 🎉`,
+            blocks: confirmedBlocks,
+          });
+        } else {
+          // Fallback: reply only to the person who clicked
+          await respond({
+            text: `Thanks for confirming! 🎉`,
+            blocks: confirmedBlocks,
+            replace_original: false,
+          });
+        }
       } catch (error) {
         await respond({
           text: `❌ Error confirming meetup: ${error}`,
