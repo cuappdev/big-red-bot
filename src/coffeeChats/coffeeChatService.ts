@@ -115,7 +115,7 @@ export const getChannelMembers = async (
         const userInfo = await slackbot.client.users.info({ user: userId });
         return {
           id: userId,
-          isBot: userInfo.user?.is_bot || false,
+          isBot: userInfo.user?.is_bot || userInfo.user?.deleted || false,
         };
       }),
     );
