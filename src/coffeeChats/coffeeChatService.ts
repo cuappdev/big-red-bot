@@ -549,6 +549,13 @@ export const createCoffeeChatsForChannel = async (
       },
     );
 
+    // Notify opted-out and skipped users that a new pairing was sent out
+    await notifyExcludedUsers(
+      config.channelId,
+      config.channelName,
+      nextPairingDate,
+    );
+
     // Clear skip flags for all users who skipped this round
     await clearSkipFlags(config.channelId);
 
@@ -1071,6 +1078,113 @@ export const getTrioPairingPreference = async (
   });
 
   return preference?.preferTrioPairing ?? false;
+};
+
+/**
+ * Sends a DM to users who are opted out or skipping this round to let them
+ * know that a new pairing was sent out without them.
+ */
+export const notifyExcludedUsers = async (
+  channelId: string,
+  channelName: string,
+  nextPairingDate: moment.Moment,
+): Promise<void> => {
+  const excludedPrefs = await CoffeeChatUserPreferenceModel.find({
+    channelId,
+    $or: [{ isOptedIn: false }, { skipNextPairing: true }],
+  });
+
+  if (excludedPrefs.length === 0) {
+    return;
+  }
+
+  logWithTime(
+    `Notifying ${excludedPrefs.length} excluded user(s) in channel ${channelName}`,
+  );
+
+  await Promise.all(
+    excludedPrefs.map(async (pref) => {
+      const isSkipping = pref.skipNextPairing && pref.isOptedIn;
+      const text = isSkipping
+        ? `:wave: Hey! A new coffee chat pairing just went out in *#${channelName}*, but you asked to skip this round. You'll automatically be included in the next pairing on ${nextPairingDate.format("MMMM Do")}. :calendar:`
+        : `:wave: Hey! A new coffee chat pairing just went out in *#${channelName}*, but you're currently opted out so you weren't included. Click below if you'd like to rejoin future rounds!`;
+
+      try {
+        const dm = await slackbot.client.conversations.open({
+          users: pref.userId,
+        });
+
+        if (!dm.ok || !dm.channel?.id) {
+          logWithTime(`Failed to open DM with excluded user ${pref.userId}`);
+          return;
+        }
+
+        await slackbot.client.chat.postMessage({
+          channel: dm.channel.id,
+          text,
+          blocks: [
+            {
+              type: "section" as const,
+              text: {
+                type: "mrkdwn" as const,
+                text,
+              },
+            },
+            // For opted-out users, include a button to opt back in;
+            // for skipping users, offer to skip the next round too
+            ...(!pref.isOptedIn
+              ? [
+                  {
+                    type: "actions" as const,
+                    elements: [
+                      {
+                        type: "button" as const,
+                        text: {
+                          type: "plain_text" as const,
+                          text: "▶️ Resume Pairings",
+                        },
+                        style: "primary" as const,
+                        action_id: "coffee_chat_opt_in",
+                        value: channelId,
+                      },
+                    ],
+                  },
+                ]
+              : isSkipping
+                ? [
+                    {
+                      type: "actions" as const,
+                      elements: [
+                        {
+                          type: "button" as const,
+                          text: {
+                            type: "plain_text" as const,
+                            text: "⏭️ Skip Next Round Too",
+                          },
+                          action_id: "coffee_chat_skip_next",
+                          value: channelId,
+                        },
+                        {
+                          type: "button" as const,
+                          text: {
+                            type: "plain_text" as const,
+                            text: "🚫 Opt Out",
+                          },
+                          style: "danger" as const,
+                          action_id: "coffee_chat_opt_out",
+                          value: channelId,
+                        },
+                      ],
+                    },
+                  ]
+                : []),
+          ],
+        });
+      } catch (err) {
+        logWithTime(`Error notifying excluded user ${pref.userId}: ${err}`);
+      }
+    }),
+  );
 };
 
 /**

@@ -1384,3 +1384,240 @@ describe("coffeeChatService", () => {
     expect(pairing2?.midpointReminderSent).toBe(true);
   });
 });
+
+describe("notifyExcludedUsers", () => {
+  const mockChannelId = "C12345";
+  const mockChannelName = "coffee-chats";
+  const nextPairingDate = moment("2026-03-18").tz("America/New_York");
+
+  let mockConversationsOpen: jest.Mock;
+  let mockChatPostMessage: jest.Mock;
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockConversationsOpen =
+      jest.requireMock("../../src/slackbot").default.client.conversations.open;
+    mockChatPostMessage =
+      jest.requireMock("../../src/slackbot").default.client.chat.postMessage;
+  });
+
+  it("should not send any DMs when there are no excluded users", async () => {
+    // No preferences in the DB — everyone is implicitly opted in
+    await coffeeChatService.notifyExcludedUsers(
+      mockChannelId,
+      mockChannelName,
+      nextPairingDate,
+    );
+
+    expect(mockConversationsOpen).not.toHaveBeenCalled();
+    expect(mockChatPostMessage).not.toHaveBeenCalled();
+  });
+
+  it("should not send DMs to opted-in users who are not skipping", async () => {
+    await new CoffeeChatUserPreferenceModel({
+      channelId: mockChannelId,
+      userId: "U11111",
+      isOptedIn: true,
+      skipNextPairing: false,
+    }).save();
+
+    await coffeeChatService.notifyExcludedUsers(
+      mockChannelId,
+      mockChannelName,
+      nextPairingDate,
+    );
+
+    expect(mockConversationsOpen).not.toHaveBeenCalled();
+    expect(mockChatPostMessage).not.toHaveBeenCalled();
+  });
+
+  it("should DM an opted-out user with the opted-out message and Resume Pairings button", async () => {
+    await new CoffeeChatUserPreferenceModel({
+      channelId: mockChannelId,
+      userId: "U22222",
+      isOptedIn: false,
+      skipNextPairing: false,
+    }).save();
+
+    await coffeeChatService.notifyExcludedUsers(
+      mockChannelId,
+      mockChannelName,
+      nextPairingDate,
+    );
+
+    expect(mockConversationsOpen).toHaveBeenCalledWith({ users: "U22222" });
+    expect(mockChatPostMessage).toHaveBeenCalledTimes(1);
+
+    const call = mockChatPostMessage.mock.calls[0][0];
+    expect(call.channel).toBe("D12345");
+    expect(call.text).toContain("opted out");
+    expect(call.text).not.toContain("skip");
+
+    // Should have a section block and an actions block with Resume Pairings
+    expect(call.blocks).toHaveLength(2);
+    const actionsBlock = call.blocks[1];
+    expect(actionsBlock.type).toBe("actions");
+    expect(actionsBlock.elements[0].action_id).toBe("coffee_chat_opt_in");
+    expect(actionsBlock.elements[0].text.text).toContain("Resume Pairings");
+  });
+
+  it("should DM a skipping user with the skip message and Skip Next Round Too + Opt Out buttons", async () => {
+    await new CoffeeChatUserPreferenceModel({
+      channelId: mockChannelId,
+      userId: "U33333",
+      isOptedIn: true,
+      skipNextPairing: true,
+    }).save();
+
+    await coffeeChatService.notifyExcludedUsers(
+      mockChannelId,
+      mockChannelName,
+      nextPairingDate,
+    );
+
+    expect(mockConversationsOpen).toHaveBeenCalledWith({ users: "U33333" });
+    expect(mockChatPostMessage).toHaveBeenCalledTimes(1);
+
+    const call = mockChatPostMessage.mock.calls[0][0];
+    expect(call.channel).toBe("D12345");
+    expect(call.text).toContain("skip this round");
+    expect(call.text).toContain(nextPairingDate.format("MMMM Do"));
+
+    // Should have a section block and an actions block with two buttons
+    expect(call.blocks).toHaveLength(2);
+    const actionsBlock = call.blocks[1];
+    expect(actionsBlock.type).toBe("actions");
+    expect(actionsBlock.elements).toHaveLength(2);
+    expect(actionsBlock.elements[0].action_id).toBe("coffee_chat_skip_next");
+    expect(actionsBlock.elements[0].text.text).toContain("Skip Next Round Too");
+    expect(actionsBlock.elements[1].action_id).toBe("coffee_chat_opt_out");
+    expect(actionsBlock.elements[1].text.text).toContain("Opt Out");
+  });
+
+  it("should pass the channelId as the button value for all button types", async () => {
+    await new CoffeeChatUserPreferenceModel({
+      channelId: mockChannelId,
+      userId: "U44444",
+      isOptedIn: false,
+      skipNextPairing: false,
+    }).save();
+    await new CoffeeChatUserPreferenceModel({
+      channelId: mockChannelId,
+      userId: "U55555",
+      isOptedIn: true,
+      skipNextPairing: true,
+    }).save();
+
+    mockConversationsOpen
+      .mockResolvedValueOnce({ ok: true, channel: { id: "D44444" } })
+      .mockResolvedValueOnce({ ok: true, channel: { id: "D55555" } });
+
+    await coffeeChatService.notifyExcludedUsers(
+      mockChannelId,
+      mockChannelName,
+      nextPairingDate,
+    );
+
+    expect(mockChatPostMessage).toHaveBeenCalledTimes(2);
+
+    for (const call of mockChatPostMessage.mock.calls) {
+      const actionsBlock = call[0].blocks[1];
+      for (const element of actionsBlock.elements) {
+        expect(element.value).toBe(mockChannelId);
+      }
+    }
+  });
+
+  it("should DM both opted-out and skipping users in the same channel", async () => {
+    await new CoffeeChatUserPreferenceModel({
+      channelId: mockChannelId,
+      userId: "U66666",
+      isOptedIn: false,
+      skipNextPairing: false,
+    }).save();
+    await new CoffeeChatUserPreferenceModel({
+      channelId: mockChannelId,
+      userId: "U77777",
+      isOptedIn: true,
+      skipNextPairing: true,
+    }).save();
+
+    await coffeeChatService.notifyExcludedUsers(
+      mockChannelId,
+      mockChannelName,
+      nextPairingDate,
+    );
+
+    expect(mockConversationsOpen).toHaveBeenCalledTimes(2);
+    expect(mockChatPostMessage).toHaveBeenCalledTimes(2);
+  });
+
+  it("should not DM users excluded from a different channel", async () => {
+    await new CoffeeChatUserPreferenceModel({
+      channelId: "C_OTHER",
+      userId: "U88888",
+      isOptedIn: false,
+      skipNextPairing: false,
+    }).save();
+
+    await coffeeChatService.notifyExcludedUsers(
+      mockChannelId,
+      mockChannelName,
+      nextPairingDate,
+    );
+
+    expect(mockConversationsOpen).not.toHaveBeenCalled();
+    expect(mockChatPostMessage).not.toHaveBeenCalled();
+  });
+
+  it("should handle a failed conversations.open gracefully and still notify other users", async () => {
+    await new CoffeeChatUserPreferenceModel({
+      channelId: mockChannelId,
+      userId: "U99991",
+      isOptedIn: false,
+      skipNextPairing: false,
+    }).save();
+    await new CoffeeChatUserPreferenceModel({
+      channelId: mockChannelId,
+      userId: "U99992",
+      isOptedIn: false,
+      skipNextPairing: false,
+    }).save();
+
+    // First open fails, second succeeds
+    mockConversationsOpen
+      .mockResolvedValueOnce({ ok: false, channel: null })
+      .mockResolvedValueOnce({ ok: true, channel: { id: "D99992" } });
+
+    await expect(
+      coffeeChatService.notifyExcludedUsers(
+        mockChannelId,
+        mockChannelName,
+        nextPairingDate,
+      ),
+    ).resolves.not.toThrow();
+
+    // Only the second user should receive a message
+    expect(mockChatPostMessage).toHaveBeenCalledTimes(1);
+    expect(mockChatPostMessage.mock.calls[0][0].channel).toBe("D99992");
+  });
+
+  it("should only include a section block (no action buttons) for no matching case", async () => {
+    // A user who is opted in but somehow has skipNextPairing=false — excluded from query,
+    // so this just confirms the no-excluded-users path is clean.
+    await new CoffeeChatUserPreferenceModel({
+      channelId: mockChannelId,
+      userId: "UNONE",
+      isOptedIn: true,
+      skipNextPairing: false,
+    }).save();
+
+    await coffeeChatService.notifyExcludedUsers(
+      mockChannelId,
+      mockChannelName,
+      nextPairingDate,
+    );
+
+    expect(mockChatPostMessage).not.toHaveBeenCalled();
+  });
+});
