@@ -981,6 +981,23 @@ describe("coffeeChatService", () => {
         }),
       );
 
+      // Verify the commands section is included in the stats message
+      const blocks: Array<{
+        type: string;
+        text?: { type: string; text: string };
+      }> = mockPostMessage.mock.calls[0][0].blocks;
+
+      const commandsBlock = blocks.find(
+        (b) =>
+          b.type === "section" &&
+          b.text?.text.includes("Available Commands"),
+      );
+      expect(commandsBlock).toBeDefined();
+      expect(commandsBlock?.text?.text).toContain("/coffee-chat-status");
+      expect(commandsBlock?.text?.text).toContain("/my-coffee-chats");
+      expect(commandsBlock?.text?.text).toContain("/start-coffee-chats");
+      expect(commandsBlock?.text?.text).toContain("/pause-coffee-chats");
+
       const mockLogWithTime = jest.requireMock(
         "../../src/utils/timeUtils",
       ).logWithTime;

@@ -741,6 +741,13 @@ export const reportChannelStats = async (
         },
         ...(leaderboardBlock ? [leaderboardBlock] : []),
         {
+          type: "section",
+          text: {
+            type: "mrkdwn" as const,
+            text: `*🛠️ Available Commands:*\n\`/coffee-chat-status\` — Check your opt-in status across channels\n\`/my-coffee-chats\` — View your pairing history\n\`/start-coffee-chats\` — _(Admin)_ Start coffee chat pairings\n\`/pause-coffee-chats\` — _(Admin)_ Pause coffee chat pairings`,
+          },
+        },
+        {
           type: "context",
           elements: [
             {

@@ -1,4 +1,5 @@
 import { App, BlockAction, SlackActionMiddlewareArgs } from "@slack/bolt";
+import { KnownBlock } from "@slack/types";
 import {
   optOutOfCoffeeChats,
   optInToCoffeeChats,
@@ -130,7 +131,7 @@ export function registerCoffeeChatActions(slackbot: App) {
 
         await confirmMeetup(pairingId);
 
-        const confirmedBlocks = [
+        const confirmationSections: KnownBlock[] = [
           {
             type: "section",
             text: {
@@ -151,20 +152,28 @@ export function registerCoffeeChatActions(slackbot: App) {
         // so both (or all) participants see the buttons replaced with the confirmation.
         const channelId = body.channel?.id;
         const messageTs = body.message?.ts;
+        const originalBlocks: KnownBlock[] =
+          (body.message?.blocks as KnownBlock[]) ?? [];
+
+        // Keep all original blocks except the actions block, then append confirmation
+        const updatedBlocks: KnownBlock[] = [
+          ...originalBlocks.filter((b) => b.type !== "actions"),
+          ...confirmationSections,
+        ];
 
         if (channelId && messageTs) {
           await slackbot.client.chat.update({
             channel: channelId,
             ts: messageTs,
             text: `Thanks for confirming! 🎉`,
-            blocks: confirmedBlocks,
+            blocks: updatedBlocks,
           });
         } else {
           // Fallback: reply only to the person who clicked
           await respond({
             text: `Thanks for confirming! 🎉`,
-            blocks: confirmedBlocks,
-            replace_original: false,
+            blocks: updatedBlocks,
+            replace_original: true,
           });
         }
       } catch (error) {
