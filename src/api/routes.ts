@@ -1,11 +1,24 @@
 import express, { Express } from "express";
+import rateLimit from "express-rate-limit";
 import slackbot from "../slackbot";
 import { logWithTime } from "../utils/timeUtils";
 
 export const registerApiRoutes = (app: Express) => {
   app.use(express.json());
 
-  app.post("/api/send-message", async (req, res) => {
+  // Set up rate limiting
+  const apiLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    max: 15, // Limit each IP to 15 requests per `window` (here, per 15 minutes)
+    standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
+    legacyHeaders: false, // Disable the `X-RateLimit-*` headers
+    message: {
+      success: false,
+      error: "Too many requests, please try again later.",
+    },
+  });
+
+  app.post("/api/send-message", apiLimiter, async (req, res) => {
     const authHeader = req.headers.authorization;
     const apiSecret = process.env.API_SECRET;
 
