@@ -119,3 +119,26 @@ Configurable coffee chat pairings to help team members get to know each other be
   - **⏸️ Pause Future Pairings** — Opt out of all future pairings
 - After opting out, a **▶️ Resume Pairings** button lets users opt back in
 - Pairings are tracked in MongoDB to prevent frequent repeats
+
+### 3. API Endpoints
+
+The bot exposes an HTTP server (default port `3000`) designed to receive notifications from external services.
+
+#### `POST /api/send-message`
+
+Sends a message or a rich Block Kit payload to a specified Slack channel as the bot.
+
+**Headers:**
+
+- `Authorization: Bearer <API_SECRET>`
+- `Content-Type: application/json`
+
+**Body Payload:**
+
+```json
+{
+  "channelId": "C01234567",
+  "text": "Fallback notification text",
+  "blocks": []
+}
+```

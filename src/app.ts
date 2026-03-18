@@ -1,8 +1,10 @@
 import cron from "node-cron";
+import express from "express";
 import { dbConnect } from "./database";
-import { sendFormReminders } from "./forms/formService";
+// import { sendFormReminders } from "./forms/formService";
 import slackbot from "./slackbot";
 import { logWithTime } from "./utils/timeUtils";
+import { registerApiRoutes } from "./api/routes";
 import {
   createNewCoffeeChatRounds,
   reportStats,
@@ -15,10 +17,10 @@ import { registerWelcomeHandler } from "./coffeeChats/coffeeChatWelcome";
 export const SEMESTER = "sp24";
 export const DEFAULT_PAIRING_FREQUENCY_DAYS = 14; // Default to every 2 weeks
 
-const initializeFormServices = async () => {
-  await sendFormReminders();
-  setInterval(sendFormReminders, 1000 * 60 * 60 * 24); // Run every 24 hours
-};
+// const initializeFormServices = async () => {
+//   await sendFormReminders();
+//   setInterval(sendFormReminders, 1000 * 60 * 60 * 24); // Run every 24 hours
+// };
 
 const initializeCoffeeChatServices = async () => {
   // Register coffee chat actions and commands
@@ -57,10 +59,18 @@ const initializeCoffeeChatServices = async () => {
   logWithTime("✅ Midway reminders scheduled to run daily at 4pm");
 };
 
+// Set up custom API endpoints
+const apiServer = express();
+registerApiRoutes(apiServer);
+
 export const startServer = async () => {
   await dbConnect();
   logWithTime("✅ Connected to MongoDB");
-  await slackbot.start(process.env.PORT || 3000);
+  await slackbot.start();
+  const port = Number(process.env.PORT) || 3000;
+  apiServer.listen(port, () => {
+    logWithTime(`✅ API Server listening on port ${port}`);
+  });
   logWithTime("✅ Slackbot up and running!");
 
   // Currently unused, so commenting out to avoid unnecessary API calls and logs. Can re-enable when form services are needed.

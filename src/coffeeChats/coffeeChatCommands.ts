@@ -164,7 +164,7 @@ export function registerCoffeeChatCommands(slackbot: App) {
             type: "section",
             text: {
               type: "mrkdwn",
-              text: `📅 Next automatic pairing will be on ${nextPairingDate.format("dddd (MMM Do)")} at ${nextPairingDate.format("h:mm A z")}`,
+              text: `📅 Next automatic pairing will be on ${nextPairingDate.format("dddd (MMM Do)")}`,
             },
           },
         ],
@@ -385,7 +385,11 @@ export function registerCoffeeChatCommands(slackbot: App) {
           let status = "";
           if (pairing.meetupConfirmed) {
             status = "✅ Met";
-          } else if (moment(pairing.dueDate).tz("America/New_York").isAfter(moment().tz("America/New_York"))) {
+          } else if (
+            moment(pairing.dueDate)
+              .tz("America/New_York")
+              .isAfter(moment().tz("America/New_York"))
+          ) {
             status = "⏳ Pending";
           } else {
             status = "❌ Did not meet";
