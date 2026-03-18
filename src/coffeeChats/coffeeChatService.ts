@@ -263,7 +263,7 @@ export const getSchedulingLink = async (
 
     const profile = userInfo.user.profile;
 
-    // Check profile fields for scheduling links
+    // Check profile fields for scheduling links (e.g. in the link field of Misc. Information)
     const fieldsToCheck = [
       ...((profile as Record<string, unknown>).fields
         ? Object.values(
@@ -275,29 +275,27 @@ export const getSchedulingLink = async (
         : []),
     ];
 
-    // Common scheduling platforms
-    const schedulingPatterns = [
-      /calendly\.com\/[\w-]+/i,
-      /cal\.com\/[\w-]+/i,
-      /savvycal\.com\/[\w-]+/i,
-      /tidycal\.com\/[\w-]+/i,
-      /zcal\.co\/[\w-]+/i,
-      /schedule\.(?:once|now)\/[\w-]+/i,
-    ];
-
     for (const field of fieldsToCheck) {
       if (!field || typeof field !== "string") continue;
 
-      for (const pattern of schedulingPatterns) {
-        const match = field.match(pattern);
-        if (match) {
-          // Ensure it's a full URL
-          let link = match[0];
-          if (!link.startsWith("http")) {
-            link = "https://" + link;
-          }
-          return link;
-        }
+      // Slack custom fields format links as <https://calendly.com/user|Text> or <https://calendly.com/user>
+      const slackLinkMatch = field.match(/<(https?:\/\/calendly\.com\/[^|>]+)(?:\|[^>]+)?>/i);
+      if (slackLinkMatch) {
+        return slackLinkMatch[1];
+      }
+
+      // Check for plain Calendly URLs
+      const urlMatch = field.match(/https?:\/\/calendly\.com\/[^\s|><]+/i);
+      if (urlMatch) {
+        return urlMatch[0];
+      }
+
+      // Fallback for calendly without protocol
+      const domainMatch = field.match(
+        /calendly\.com\/[\w-]+/i,
+      );
+      if (domainMatch) {
+        return "https://" + domainMatch[0];
       }
     }
 
@@ -320,13 +318,16 @@ export const notifyPairing = async (
   const userMentions = userIds.map((id) => `<@${id}>`).join(", ");
   const activity = getRandomActivity();
 
-  // Fetch scheduling links for all users
-  const schedulingLinks = await Promise.all(
-    userIds.map(async (userId) => {
-      const link = await getSchedulingLink(userId);
-      return { userId, link };
-    }),
-  );
+  // Fetch scheduling links for all users (only for 2-person groups)
+  const schedulingLinks =
+    userIds.length === 2
+      ? await Promise.all(
+          userIds.map(async (userId) => {
+            const link = await getSchedulingLink(userId);
+            return { userId, link };
+          }),
+        )
+      : [];
 
   try {
     // Create a group DM with all users in the pairing
@@ -854,13 +855,16 @@ export const sendMidwayReminders = async (): Promise<void> => {
               .diff(moment().tz("America/New_York"), "hours") / 24,
           );
 
-          // Fetch scheduling links for all users
-          const schedulingLinks = await Promise.all(
-            pairing.userIds.map(async (userId) => {
-              const link = await getSchedulingLink(userId);
-              return { userId, link };
-            }),
-          );
+          // Fetch scheduling links for all users (only for 2-person groups)
+          const schedulingLinks =
+            pairing.userIds.length === 2
+              ? await Promise.all(
+                  pairing.userIds.map(async (userId) => {
+                    const link = await getSchedulingLink(userId);
+                    return { userId, link };
+                  }),
+                )
+              : [];
 
           // Send reminder to the group DM
           await slackbot.client.chat.postMessage({
