@@ -250,18 +250,20 @@ export const createPairings = (
 };
 
 /**
- * Extracts scheduling links (Calendly, Cal.com, etc.) from user profile
+ * Extracts Calendly scheduling link from user profile
  */
 export const getSchedulingLink = async (
   userId: string,
 ): Promise<string | null> => {
   try {
-    const userInfo = await slackbot.client.users.info({ user: userId });
-    if (!userInfo.ok || !userInfo.user?.profile) {
+    const userProfile = await slackbot.client.users.profile.get({
+      user: userId,
+    });
+    if (!userProfile.ok || !userProfile.profile) {
       return null;
     }
 
-    const profile = userInfo.user.profile;
+    const profile = userProfile.profile;
 
     // Check profile fields for scheduling links (e.g. in the link field of Misc. Information)
     const fieldsToCheck = [
@@ -279,7 +281,9 @@ export const getSchedulingLink = async (
       if (!field || typeof field !== "string") continue;
 
       // Slack custom fields format links as <https://calendly.com/user|Text> or <https://calendly.com/user>
-      const slackLinkMatch = field.match(/<(https?:\/\/calendly\.com\/[^|>]+)(?:\|[^>]+)?>/i);
+      const slackLinkMatch = field.match(
+        /<(https?:\/\/calendly\.com\/[^|>]+)(?:\|[^>]+)?>/i,
+      );
       if (slackLinkMatch) {
         return slackLinkMatch[1];
       }
@@ -291,9 +295,7 @@ export const getSchedulingLink = async (
       }
 
       // Fallback for calendly without protocol
-      const domainMatch = field.match(
-        /calendly\.com\/[\w-]+/i,
-      );
+      const domainMatch = field.match(/calendly\.com\/[\w-]+/i);
       if (domainMatch) {
         return "https://" + domainMatch[0];
       }
@@ -630,8 +632,11 @@ export const createCoffeeChatsForChannel = async (
  */
 export const reportStats = async (): Promise<void> => {
   try {
+    const now = moment().tz("America/New_York").toDate();
+
     const activeConfigs = await CoffeeChatConfigModel.find({
       isActive: true,
+      nextPairingDate: { $lte: now },
     });
 
     if (activeConfigs.length === 0) {

@@ -121,6 +121,7 @@ describe("coffeeChatService", () => {
         channelName: mockChannelName,
         isActive: true,
         pairingFrequencyDays: mockPairingFrequencyDays,
+        nextPairingDate: moment().tz("America/New_York").subtract(1, "minutes").toDate(),
       }).save();
 
       // Call the function
@@ -169,6 +170,7 @@ describe("coffeeChatService", () => {
         channelName: mockChannelName,
         isActive: false,
         pairingFrequencyDays: mockPairingFrequencyDays,
+        nextPairingDate: moment().tz("America/New_York").subtract(1, "minutes").toDate(),
       }).save();
 
       // Call the function
@@ -207,6 +209,7 @@ describe("coffeeChatService", () => {
         channelName: mockChannelName,
         isActive: true,
         pairingFrequencyDays: mockPairingFrequencyDays,
+        nextPairingDate: moment().tz("America/New_York").subtract(1, "minutes").toDate(),
       }).save();
 
       await coffeeChatService.pauseCoffeeChats(mockChannelId);
@@ -945,6 +948,7 @@ describe("coffeeChatService", () => {
         channelName: mockChannelName,
         isActive: true,
         pairingFrequencyDays: mockPairingFrequencyDays,
+        nextPairingDate: moment().tz("America/New_York").subtract(1, "minutes").toDate(),
       }).save();
 
       // Create some pairings
@@ -1016,6 +1020,7 @@ describe("coffeeChatService", () => {
         channelName: mockChannelName,
         isActive: false,
         pairingFrequencyDays: mockPairingFrequencyDays,
+        nextPairingDate: moment().tz("America/New_York").subtract(1, "minutes").toDate(),
       }).save();
 
       // Call the function
@@ -1048,6 +1053,7 @@ describe("coffeeChatService", () => {
         channelName: mockChannelName,
         isActive: true,
         pairingFrequencyDays: mockPairingFrequencyDays,
+        nextPairingDate: moment().tz("America/New_York").subtract(1, "minutes").toDate(),
       }).save();
 
       // Call the function
@@ -1070,6 +1076,7 @@ describe("coffeeChatService", () => {
         channelName: mockChannelName,
         isActive: true,
         pairingFrequencyDays: mockPairingFrequencyDays,
+        nextPairingDate: moment().tz("America/New_York").subtract(1, "minutes").toDate(),
       }).save();
 
       // Create a pairing that is not due for stats reporting
@@ -1101,6 +1108,7 @@ describe("coffeeChatService", () => {
         channelName: mockChannelName,
         isActive: true,
         pairingFrequencyDays: mockPairingFrequencyDays,
+        nextPairingDate: moment().tz("America/New_York").subtract(1, "minutes").toDate(),
       }).save();
 
       // Pairing within the reporting window (counts toward period stats)
@@ -1162,6 +1170,7 @@ describe("coffeeChatService", () => {
         channelName: mockChannelName,
         isActive: true,
         pairingFrequencyDays: mockPairingFrequencyDays,
+        nextPairingDate: moment().tz("America/New_York").subtract(1, "minutes").toDate(),
       }).save();
 
       const recentDueDate = moment()
@@ -1247,6 +1256,7 @@ describe("coffeeChatService", () => {
         channelName: mockChannelName,
         isActive: true,
         pairingFrequencyDays: mockPairingFrequencyDays,
+        nextPairingDate: moment().tz("America/New_York").subtract(1, "minutes").toDate(),
       }).save();
 
       const recentDueDate = moment()
@@ -1304,6 +1314,7 @@ describe("coffeeChatService", () => {
         channelName: mockChannelName,
         isActive: true,
         pairingFrequencyDays: mockPairingFrequencyDays,
+        nextPairingDate: moment().tz("America/New_York").subtract(1, "minutes").toDate(),
       }).save();
 
       // One period pairing that is NOT confirmed — still triggers the stats post
@@ -1348,6 +1359,7 @@ describe("coffeeChatService", () => {
         channelName: "coffee-chats",
         isActive: true,
         pairingFrequencyDays: mockPairingFrequencyDays,
+        nextPairingDate: moment().tz("America/New_York").subtract(1, "minutes").toDate(),
       }).save();
 
       // Pairing in the target channel
@@ -1404,6 +1416,7 @@ describe("coffeeChatService", () => {
       channelName: mockChannelName,
       isActive: true,
       pairingFrequencyDays: mockPairingFrequencyDays,
+        nextPairingDate: moment().tz("America/New_York").subtract(1, "minutes").toDate(),
     }).save();
 
     // Create a pairing that is due for stats reporting but has a previous pairing from a round long ago
@@ -1435,6 +1448,7 @@ describe("coffeeChatService", () => {
         channelName: "coffee-chats",
         isActive: true,
         pairingFrequencyDays: mockPairingFrequencyDays,
+        nextPairingDate: moment().tz("America/New_York").subtract(1, "minutes").toDate(),
       }).save();
 
       // Create a pairing that is halfway to due date, with a conversationId
@@ -1480,6 +1494,7 @@ describe("coffeeChatService", () => {
         channelName: "coffee-chats",
         isActive: true,
         pairingFrequencyDays: mockPairingFrequencyDays,
+        nextPairingDate: moment().tz("America/New_York").subtract(1, "minutes").toDate(),
       }).save();
 
       // Create a pairing that is not halfway to due date
@@ -1520,6 +1535,7 @@ describe("coffeeChatService", () => {
         channelName: "coffee-chats",
         isActive: true,
         pairingFrequencyDays: mockPairingFrequencyDays,
+        nextPairingDate: moment().tz("America/New_York").subtract(1, "minutes").toDate(),
       }).save();
 
       // Create a pairing that is halfway to due date but already confirmed
@@ -1561,6 +1577,7 @@ describe("coffeeChatService", () => {
       channelName: "coffee-chats",
       isActive: false,
       pairingFrequencyDays: mockPairingFrequencyDays,
+        nextPairingDate: moment().tz("America/New_York").subtract(1, "minutes").toDate(),
     }).save();
 
     // Create a pairing that is halfway to due date, with a conversationId
@@ -1601,6 +1618,7 @@ describe("coffeeChatService", () => {
       channelName: "coffee-chats",
       isActive: true,
       pairingFrequencyDays: mockPairingFrequencyDays,
+        nextPairingDate: moment().tz("America/New_York").subtract(1, "minutes").toDate(),
     }).save();
 
     // Create a pairing that is halfway to due date but has no conversationId
@@ -1641,6 +1659,7 @@ describe("coffeeChatService", () => {
       channelName: "coffee-chats",
       isActive: true,
       pairingFrequencyDays: mockPairingFrequencyDays,
+        nextPairingDate: moment().tz("America/New_York").subtract(1, "minutes").toDate(),
     }).save();
 
     // Create 2 pairings that are halfway to due date, with conversationIds
